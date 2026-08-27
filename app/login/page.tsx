@@ -24,8 +24,8 @@ export default function LoginPage() {
         // Store user data
         storeUser(response.user);
         
-        // Redirect to home page
-        router.push('/');
+        // Redirect to the first admin section
+        router.push('/users');
       } else {
         setError('Login failed. Please check your credentials.');
       }
@@ -107,7 +107,7 @@ export default function LoginPage() {
                 letterSpacing: 0.4,
               }}
             >
-              Totus Web Calling
+              Totus Admin
             </h1>
             <p
               style={{
@@ -116,7 +116,7 @@ export default function LoginPage() {
                 fontSize: 13,
               }}
             >
-              Войдите как агент, чтобы управлять звонками
+              Войдите как агент, чтобы управлять платформой
             </p>
           </div>
         </div>
