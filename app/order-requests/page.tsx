@@ -2,14 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import {
-    getStaffAuth,
-    staffSignIn,
-    staffLogout,
-    type StaffAuth,
-} from '@/lib/staff-auth-api';
+import { getStaffAuth, staffLogout, type StaffProfile } from '@/lib/staff-auth-api';
 import {
     listOrderRequests,
     updateOrderRequestStatus,
@@ -27,17 +23,6 @@ const cardStyle: React.CSSProperties = {
     border: '1px solid rgba(55,65,81,0.6)',
     boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
     backdropFilter: 'blur(20px)',
-};
-
-const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    border: '1px solid rgba(75,85,99,0.9)',
-    backgroundColor: 'rgba(15,23,42,0.95)',
-    color: '#e5e7eb',
-    fontSize: 14,
-    outline: 'none',
 };
 
 const STATUS_META: Record<OrderRequestStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -89,16 +74,9 @@ function clientName(r: OrderRequest): string {
 }
 
 export default function OrderRequestsPage() {
-    const [authChecked, setAuthChecked] = useState(false);
-    const [auth, setAuth] = useState<StaffAuth | null>(null);
+    const router = useRouter();
+    const [profile, setProfile] = useState<StaffProfile | null>(null);
 
-    // login form
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loginLoading, setLoginLoading] = useState(false);
-    const [loginError, setLoginError] = useState<string | null>(null);
-
-    // list
     const [requests, setRequests] = useState<OrderRequest[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -106,11 +84,16 @@ export default function OrderRequestsPage() {
     const [filter, setFilter] = useState<OrderRequestStatus | ''>('');
     const [updatingId, setUpdatingId] = useState<number | null>(null);
 
+    // Единый вход админки — staff JWT kedam (AuthGuard + /login).
     // localStorage доступен только в браузере — читаем сессию после маунта.
     useEffect(() => {
-        setAuth(getStaffAuth());
-        setAuthChecked(true);
-    }, []);
+        const auth = getStaffAuth();
+        if (!auth) {
+            router.push('/login');
+            return;
+        }
+        setProfile(auth.profile);
+    }, [router]);
 
     const load = useCallback(
         async (silent = false) => {
@@ -122,9 +105,8 @@ export default function OrderRequestsPage() {
                 setListError(null);
             } catch (e: any) {
                 if (e?.message === 'staff_session_expired') {
-                    // refresh-токен тоже истёк или отозван — просим войти заново
-                    setAuth(null);
-                    setRequests([]);
+                    // refresh-токен истёк или отозван — на общий экран входа
+                    router.push('/login');
                     return;
                 }
                 console.error('Failed to load order requests:', e);
@@ -133,44 +115,27 @@ export default function OrderRequestsPage() {
                 if (!silent) setLoading(false);
             }
         },
-        [filter],
+        [filter, router],
     );
 
     // Первичная загрузка + перезагрузка при смене фильтра.
     useEffect(() => {
-        if (!auth) return;
+        if (!profile) return;
         load();
-    }, [auth, load]);
+    }, [profile, load]);
 
     // Автообновление списка раз в 60 секунд (тихо, без спиннера).
     useEffect(() => {
-        if (!auth) return;
+        if (!profile) return;
         const timer = setInterval(() => {
             load(true);
         }, REFRESH_INTERVAL_MS);
         return () => clearInterval(timer);
-    }, [auth, load]);
-
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoginError(null);
-        setLoginLoading(true);
-        try {
-            const nextAuth = await staffSignIn(email.trim(), password);
-            setAuth(nextAuth);
-            setPassword('');
-        } catch (err: any) {
-            setLoginError(err?.message || 'Не удалось войти');
-        } finally {
-            setLoginLoading(false);
-        }
-    };
+    }, [profile, load]);
 
     const handleLogout = () => {
         staffLogout();
-        setAuth(null);
-        setRequests([]);
-        setTotal(0);
+        router.push('/login');
     };
 
     const handleStatusChange = async (id: number, status: OrderRequestStatus) => {
@@ -180,7 +145,7 @@ export default function OrderRequestsPage() {
             await load(true);
         } catch (e: any) {
             if (e?.message === 'staff_session_expired') {
-                setAuth(null);
+                router.push('/login');
                 return;
             }
             alert(e?.message || 'Не удалось обновить статус');
@@ -188,111 +153,6 @@ export default function OrderRequestsPage() {
             setUpdatingId(null);
         }
     };
-
-    if (!authChecked) {
-        return (
-            <PageShell>
-                <AdminNav />
-            </PageShell>
-        );
-    }
-
-    if (!auth) {
-        return (
-            <PageShell>
-                <AdminNav />
-                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
-                    <div
-                        style={{
-                            width: '100%',
-                            maxWidth: 380,
-                            borderRadius: 24,
-                            padding: '28px 24px 22px',
-                            background: 'linear-gradient(145deg, rgba(15,23,42,0.96), rgba(17,24,39,0.98))',
-                            border: '1px solid rgba(55,65,81,0.85)',
-                            boxShadow: '0 25px 70px rgba(15,23,42,0.95), 0 0 0 1px rgba(2,6,23,0.9)',
-                        }}
-                    >
-                        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                            <h1 style={{ margin: 0, marginBottom: 6, color: '#f9fafb', fontSize: 20, fontWeight: 700 }}>
-                                Вход для сотрудников
-                            </h1>
-                            <p style={{ margin: 0, color: '#9ca3af', fontSize: 12, lineHeight: 1.5 }}>
-                                Staff-доступ kedam (обращения по заказам).
-                                <br />
-                                Это не логин агента звонков.
-                            </p>
-                        </div>
-
-                        {loginError && (
-                            <div
-                                style={{
-                                    marginBottom: 16,
-                                    padding: '10px 12px',
-                                    backgroundColor: 'rgba(127,29,29,0.18)',
-                                    border: '1px solid rgba(248,113,113,0.55)',
-                                    borderRadius: 10,
-                                    color: '#fecaca',
-                                    fontSize: 13,
-                                }}
-                            >
-                                {loginError}
-                            </div>
-                        )}
-
-                        <form onSubmit={handleLogin}>
-                            <div style={{ marginBottom: 14 }}>
-                                <label style={{ display: 'block', marginBottom: 6, color: '#e5e7eb', fontSize: 13, fontWeight: 500 }}>
-                                    Email
-                                </label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    disabled={loginLoading}
-                                    placeholder="staff@totus.club"
-                                    style={inputStyle}
-                                />
-                            </div>
-                            <div style={{ marginBottom: 18 }}>
-                                <label style={{ display: 'block', marginBottom: 6, color: '#e5e7eb', fontSize: 13, fontWeight: 500 }}>
-                                    Пароль
-                                </label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    disabled={loginLoading}
-                                    placeholder="Пароль сотрудника"
-                                    style={inputStyle}
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={loginLoading}
-                                style={{
-                                    width: '100%',
-                                    padding: '11px 14px',
-                                    borderRadius: 999,
-                                    border: 'none',
-                                    background: loginLoading ? '#374151' : 'linear-gradient(135deg, #FE732E, #f97316)',
-                                    color: '#f9fafb',
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: loginLoading ? 'not-allowed' : 'pointer',
-                                    boxShadow: loginLoading ? 'none' : '0 16px 40px rgba(248,113,22,0.55)',
-                                }}
-                            >
-                                {loginLoading ? 'Вход...' : 'Войти'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </PageShell>
-        );
-    }
 
     return (
         <PageShell>
@@ -315,9 +175,9 @@ export default function OrderRequestsPage() {
                         </h1>
                         <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
                             Всего: {total}
-                            {auth.profile?.email ? (
+                            {profile ? (
                                 <>
-                                    {' '}· Сотрудник: {[auth.profile.name, auth.profile.lastname].filter(Boolean).join(' ') || auth.profile.email}
+                                    {' '}· Сотрудник: {[profile.name, profile.lastname].filter(Boolean).join(' ') || profile.email}
                                     {' '}·{' '}
                                     <button
                                         onClick={handleLogout}

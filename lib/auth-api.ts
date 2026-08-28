@@ -1,3 +1,9 @@
+// DEPRECATED: агентский логин звонков (voip.totus.club, localStorage 'webAppUser').
+// Админка больше НЕ использует этот модуль: единый вход теперь через
+// staff JWT kedam_API — см. lib/staff-auth-api.ts (таблица `staff`, ключ 'staffAuth').
+// Файл оставлен в репозитории только для истории — не импортировать его
+// в новом коде.
+
 // Authentication API service for web app
 import {SERVER_BASE_URL} from './server';
 
@@ -24,6 +30,7 @@ export interface LoginResponse {
   user: User;
 }
 
+/** @deprecated Единый вход админки — staffSignIn из lib/staff-auth-api.ts. */
 // Login user (only agents can login)
 export async function login(credentials: LoginCredentials): Promise<LoginResponse> {
   try {
@@ -48,6 +55,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
   }
 }
 
+/** @deprecated Единый вход админки — getStaffAuth из lib/staff-auth-api.ts. */
 // Get stored user from localStorage
 export function getStoredUser(): User | null {
   try {
@@ -60,17 +68,20 @@ export function getStoredUser(): User | null {
   }
 }
 
+/** @deprecated Единый вход админки — staffSignIn из lib/staff-auth-api.ts. */
 // Store user in localStorage
 export function storeUser(user: User): void {
   localStorage.setItem('webAppUser', JSON.stringify(user));
 }
 
+/** @deprecated Единый вход админки — staffLogout из lib/staff-auth-api.ts. */
 // Remove user from localStorage (logout)
 export function removeUser(): void {
   localStorage.removeItem('webAppUser');
   localStorage.removeItem('webLoyaltyId');
 }
 
+/** @deprecated Единый вход админки — getStaffAuth из lib/staff-auth-api.ts. */
 // Check if user is authenticated
 export function isAuthenticated(): boolean {
   const user = getStoredUser();

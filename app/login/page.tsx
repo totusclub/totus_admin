@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, storeUser, type LoginCredentials } from '@/lib/auth-api';
+import { staffSignIn } from '@/lib/staff-auth-api';
 
+// Единый вход в админку: staff JWT kedam_API (таблица `staff`).
+// Агентский логин звонков (lib/auth-api.ts) больше не используется.
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -17,20 +19,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const credentials: LoginCredentials = { email, password };
-      const response = await login(credentials);
-      
-      if (response.ok && response.user) {
-        // Store user data
-        storeUser(response.user);
-        
-        // Redirect to the first admin section
-        router.push('/users');
-      } else {
-        setError('Login failed. Please check your credentials.');
-      }
+      await staffSignIn(email.trim(), password);
+      // Redirect to the first admin section
+      router.push('/users');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Не удалось войти. Попробуйте ещё раз.');
     } finally {
       setLoading(false);
     }
@@ -116,7 +109,7 @@ export default function LoginPage() {
                 fontSize: 13,
               }}
             >
-              Войдите как агент, чтобы управлять платформой
+              Вход для сотрудников
             </p>
           </div>
         </div>
@@ -156,7 +149,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
-              placeholder="agent@totus.club"
+              placeholder="staff@totus.club"
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -188,7 +181,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
-              placeholder="Введите пароль агента"
+              placeholder="Введите пароль"
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -238,8 +231,7 @@ export default function LoginPage() {
             textAlign: 'center',
           }}
         >
-          Только пользователи с ролью <strong>agent</strong> могут войти в
-          систему.
+          Вход по учётной записи сотрудника (<strong>staff</strong>).
         </div>
       </div>
     </div>
