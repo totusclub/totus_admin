@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadEditorImage } from '@/lib/pages-api';
+import { t, radius, text } from '@/lib/theme';
+import Icon, { type IconName } from '@/components/Icon';
 
 type Props = {
     value: string;
@@ -41,6 +43,7 @@ type ToolItem = {
     action: ToolAction;
     label: string;
     title: string;
+    icon?: IconName;
 };
 
 type ToolGroup = {
@@ -97,23 +100,23 @@ const TOOL_GROUPS: ToolGroup[] = [
     {
         title: 'Вставка',
         items: [
-            { action: 'link', label: '🔗', title: 'Добавить ссылку' },
-            { action: 'unlink', label: '⛓', title: 'Удалить ссылку' },
-            { action: 'image', label: '🖼', title: 'Изображение' },
+            { action: 'link', label: '', title: 'Добавить ссылку', icon: 'link' },
+            { action: 'unlink', label: '', title: 'Удалить ссылку', icon: 'close' },
+            { action: 'image', label: '', title: 'Изображение', icon: 'photo' },
             { action: 'hr', label: '—', title: 'Горизонтальная линия' },
             { action: 'quote', label: '❝', title: 'Цитата' },
         ],
     },
     {
         title: 'Очистка',
-        items: [{ action: 'clearAll', label: '⌫', title: 'Очистить всё содержимое' }],
+        items: [{ action: 'clearAll', label: '', title: 'Очистить всё содержимое', icon: 'delete' }],
     },
 ];
 
-const EDITOR_SURFACE_BG = '#ffffff';
-
-const TEXT_COLORS = ['#111827', '#374151', '#fe732e', '#0284c7', '#16a34a', '#dc2626', '#7c3aed'];
-const HIGHLIGHT_COLORS = ['transparent', '#fef08a', '#fdba74', '#86efac', '#93c5fd', '#fca5a5'];
+/* Палитры попадают в сохранённый HTML страниц сайта, поэтому здесь остаются
+   литеральные hex дизайн-системы, а не ссылки на CSS-переменные темы. */
+const TEXT_COLORS = ['#1f1f1f', '#3d3d3d', '#fe732e', '#0d77d3', '#288556', '#cf3030', '#7e24b2'];
+const HIGHLIGHT_COLORS = ['transparent', '#facd64', '#fa8842', '#39bf87', '#61aaf2', '#f26161'];
 
 type ImageAlign = 'left' | 'center' | 'right';
 type ImageWidthPreset = 25 | 50 | 75 | 100;
@@ -209,9 +212,9 @@ const editorStyles = {
     wrap: {
         display: 'flex',
         flexDirection: 'column' as const,
-        borderRadius: 18,
-        border: '1px solid rgba(55,65,81,0.7)',
-        background: '#020617',
+        borderRadius: radius.lg,
+        border: `1px solid ${t.border}`,
+        background: t.surfaceInset,
         overflow: 'hidden',
     },
     toolbar: {
@@ -219,8 +222,8 @@ const editorStyles = {
         flexDirection: 'column' as const,
         gap: 10,
         padding: '12px 14px',
-        borderBottom: '1px solid rgba(55,65,81,0.55)',
-        background: 'rgba(15,23,42,0.85)',
+        borderBottom: `1px solid ${t.border}`,
+        background: t.surface,
     },
     group: {
         display: 'flex',
@@ -231,45 +234,46 @@ const editorStyles = {
     groupLabel: {
         fontSize: 11,
         fontWeight: 700,
-        color: '#9ca3af',
+        color: t.textTertiary,
         minWidth: 88,
         textTransform: 'uppercase' as const,
         letterSpacing: '0.04em',
     },
     toolBtn: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         minWidth: 36,
         height: 36,
-        borderRadius: 10,
-        border: '1px solid rgba(75,85,99,0.55)',
-        background: 'rgba(15,23,42,0.9)',
-        color: '#e5e7eb',
+        borderRadius: radius.sm,
+        border: `1px solid ${t.border}`,
+        background: t.surface,
+        color: t.textSecondary,
         cursor: 'pointer',
         fontSize: 13,
-        fontWeight: 700,
+        fontWeight: 600,
+        fontFamily: 'inherit',
         padding: '0 10px',
     },
     colorBtn: {
         width: 28,
         height: 28,
-        borderRadius: 8,
-        border: '2px solid rgba(75,85,99,0.55)',
+        borderRadius: radius.sm,
+        border: `2px solid ${t.border}`,
         cursor: 'pointer',
         padding: 0,
     },
     editor: {
         minHeight: 420,
         padding: '18px 20px',
-        color: '#111827',
         fontSize: 15,
         lineHeight: 1.7,
         outline: 'none',
         overflowY: 'auto' as const,
-        background: '#ffffff',
     },
     hint: {
         padding: '0 16px 14px',
-        fontSize: 12,
-        color: '#9ca3af',
+        ...text.caption,
     },
 };
 
@@ -460,7 +464,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                                 onClick={() => runCommand(tool.action)}
                                 style={editorStyles.toolBtn}
                             >
-                                {tool.label}
+                                {tool.icon ? <Icon name={tool.icon} size={16} title={tool.title} /> : tool.label}
                             </button>
                         ))}
                     </div>
@@ -502,7 +506,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                             }}
                             style={{
                                 ...editorStyles.colorBtn,
-                                background: color === 'transparent' ? 'rgba(15,23,42,0.9)' : color,
+                                background: color === 'transparent' ? t.surfaceInset : color,
+                                color: t.textTertiary,
+                                fontSize: 13,
+                                lineHeight: '16px',
                             }}
                         >
                             {color === 'transparent' ? '∅' : ''}
@@ -521,10 +528,8 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                             onClick={() => updateSelectedImage(preset, imageAlign)}
                             style={{
                                 ...editorStyles.toolBtn,
-                                borderColor:
-                                    imageWidth === preset
-                                        ? '#FE732E'
-                                        : 'rgba(75,85,99,0.55)',
+                                borderColor: imageWidth === preset ? t.accent : t.border,
+                                color: imageWidth === preset ? t.accent : t.textSecondary,
                             }}
                         >
                             {preset}%
@@ -544,10 +549,12 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                         style={{
                             width: 72,
                             height: 36,
-                            borderRadius: 10,
-                            border: '1px solid rgba(75,85,99,0.55)',
-                            background: 'rgba(15,23,42,0.9)',
-                            color: '#e5e7eb',
+                            borderRadius: radius.sm,
+                            border: `1px solid ${t.border}`,
+                            background: t.surface,
+                            color: t.textPrimary,
+                            fontFamily: 'inherit',
+                            fontSize: 13,
                             padding: '0 10px',
                         }}
                     />
@@ -566,23 +573,19 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                             onClick={() => updateSelectedImage(imageWidth, item.align)}
                             style={{
                                 ...editorStyles.toolBtn,
-                                borderColor:
-                                    imageAlign === item.align
-                                        ? '#FE732E'
-                                        : 'rgba(75,85,99,0.55)',
+                                borderColor: imageAlign === item.align ? t.accent : t.border,
+                                color: imageAlign === item.align ? t.accent : t.textSecondary,
                             }}
                         >
                             {item.label}
                         </button>
                     ))}
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>
+                    <span style={text.caption}>
                         {selectedImage ? 'Изображение выбрано' : `Новое: ${imageWidth}% · ${imageAlign}`}
                     </span>
                 </div>
 
-                {uploading ? (
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>Загрузка изображения...</span>
-                ) : null}
+                {uploading ? <span style={text.caption}>Загрузка изображения...</span> : null}
             </div>
 
             <div
@@ -595,7 +598,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                 onPaste={handlePaste}
                 data-placeholder={placeholder || 'Начните писать текст страницы...'}
                 style={editorStyles.editor}
-                className="cms-rich-editor"
+                className="cms-rich-editor totus-editor-surface"
             />
 
             <div style={editorStyles.hint}>
@@ -611,34 +614,36 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
             />
 
             <style jsx global>{`
-                .cms-rich-editor {
-                    background: ${EDITOR_SURFACE_BG} !important;
-                    color: #111827;
-                    color-scheme: light;
-                }
+                /* Поле ввода всегда светлое (класс totus-editor-surface), поэтому
+                   типографика внутри него задана литеральными светлыми значениями
+                   дизайн-системы, а не токенами темы. */
                 .cms-rich-editor:empty:before {
                     content: attr(data-placeholder);
-                    color: #9ca3af;
+                    color: #7a7a7a;
                 }
                 .cms-rich-editor h1 {
-                    font-size: 1.75rem;
+                    font-size: 28px;
+                    line-height: 36px;
                     margin: 1rem 0 0.6rem;
-                    color: #111827;
+                    color: #1f1f1f;
                 }
                 .cms-rich-editor h2 {
-                    font-size: 1.35rem;
+                    font-size: 22px;
+                    line-height: 28px;
                     margin: 1rem 0 0.5rem;
-                    color: #111827;
+                    color: #1f1f1f;
                 }
                 .cms-rich-editor h3 {
-                    font-size: 1.1rem;
+                    font-size: 18px;
+                    line-height: 24px;
                     margin: 0.85rem 0 0.4rem;
-                    color: #1f2937;
+                    color: #3d3d3d;
                 }
                 .cms-rich-editor h4 {
-                    font-size: 1rem;
+                    font-size: 16px;
+                    line-height: 24px;
                     margin: 0.75rem 0 0.35rem;
-                    color: #1f2937;
+                    color: #3d3d3d;
                 }
                 .cms-rich-editor p {
                     margin: 0 0 0.85rem;
@@ -651,11 +656,11 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                     margin: 0 0 0.85rem;
                     padding: 0.75rem 1rem;
                     border-left: 3px solid #fe732e;
-                    background: rgba(254, 115, 46, 0.08);
-                    border-radius: 0 10px 10px 0;
+                    background: rgba(254, 115, 46, 0.1);
+                    border-radius: 0 8px 8px 0;
                 }
                 .cms-rich-editor a {
-                    color: #2563eb;
+                    color: #0d77d3;
                     text-decoration: underline;
                 }
                 .cms-rich-editor img {
@@ -683,7 +688,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
                 }
                 .cms-rich-editor hr {
                     border: none;
-                    border-top: 1px solid rgba(156, 163, 175, 0.45);
+                    border-top: 1px solid #e0e0e0;
                     margin: 1rem 0;
                 }
             `}</style>
