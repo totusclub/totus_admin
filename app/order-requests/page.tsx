@@ -5,6 +5,7 @@ import Link from 'next/link';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon, { type IconName } from '@/components/Icon';
+import BrandLogo from '@/components/BrandLogo';
 import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
 import {
     getStaffAuth,
@@ -205,20 +206,7 @@ export default function OrderRequestsPage() {
                                 gap: 12,
                             }}
                         >
-                            <div
-                                style={{
-                                    width: 54,
-                                    height: 54,
-                                    borderRadius: radius.pill,
-                                    background: t.accentSoft,
-                                    color: t.accent,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <Icon name="user" size={26} />
-                            </div>
+                            <BrandLogo height={36} style={{ margin: '0 auto' }} />
                             <div style={{ textAlign: 'center' }}>
                                 <h1 style={{ ...text.sectionTitle, margin: '0 0 4px' }}>
                                     Вход для сотрудников

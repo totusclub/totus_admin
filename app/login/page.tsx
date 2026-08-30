@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { login, storeUser, type LoginCredentials } from '@/lib/auth-api';
 import PageShell from '@/components/PageShell';
 import Icon from '@/components/Icon';
+import BrandLogo from '@/components/BrandLogo';
 import { t, radius, text, cardStyle, inputStyle, button } from '@/lib/theme';
 
 export default function LoginPage() {
@@ -67,20 +68,7 @@ export default function LoginPage() {
               gap: 12,
             }}
           >
-            <div
-              style={{
-                width: 54,
-                height: 54,
-                borderRadius: radius.pill,
-                background: t.accentSoft,
-                color: t.accent,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon name="user" size={26} />
-            </div>
+            <BrandLogo height={36} style={{ margin: '0 auto' }} />
             <div style={{ textAlign: 'center' }}>
               <h1 style={{ ...text.pageTitle, margin: '0 0 4px' }}>Totus Admin</h1>
               <p style={{ ...text.caption, margin: 0 }}>

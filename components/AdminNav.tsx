@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Icon, { type IconName } from './Icon';
+import BrandLogo from './BrandLogo';
 import ThemeToggle from './ThemeToggle';
 import { getStoredUser, removeUser, type User } from '@/lib/auth-api';
 import { layout, radius, t } from '@/lib/theme';
@@ -81,10 +82,8 @@ export default function AdminNav() {
             }}
         >
             <div style={{ padding: '24px 20px 20px' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: t.accent, letterSpacing: '-0.02em' }}>
-                    TOTUS
-                </div>
-                <div style={{ fontSize: 12, color: t.textTertiary, marginTop: 2 }}>Админка</div>
+                <BrandLogo height={28} />
+                <div style={{ fontSize: 12, color: t.textTertiary, marginTop: 6 }}>Админпанель</div>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
