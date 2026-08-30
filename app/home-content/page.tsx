@@ -8,7 +8,7 @@ import ContentSection from '@/components/admin/home/ContentSection';
 import PartnersSection from '@/components/admin/home/PartnersSection';
 import FaqSection from '@/components/admin/home/FaqSection';
 import FooterSocialSection from '@/components/admin/home/FooterSocialSection';
-import { cardStyle } from '@/components/admin/home/styles';
+import { cardStyle, button, radius, text, t } from '@/lib/theme';
 
 const NAV_ITEMS = [
     { id: 'hero-banners', label: 'Hero и баннеры' },
@@ -40,10 +40,10 @@ export default function HomeContentPage() {
 
             <div style={cardStyle}>
                 <div style={{ marginBottom: 24 }}>
-                    <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 28, fontWeight: 700 }}>
+                    <h1 style={{ margin: 0, ...text.pageTitle }}>
                         Главная страница
                     </h1>
-                    <p style={{ margin: '8px 0 0', color: '#9ca3af', fontSize: 14, maxWidth: 720 }}>
+                    <p style={{ margin: '8px 0 0', ...text.body, color: t.textTertiary, maxWidth: 720 }}>
                         Все секции главной страницы сайта в одном месте — в том же порядке, что на сайте.
                     </p>
                 </div>
@@ -55,24 +55,16 @@ export default function HomeContentPage() {
                         flexWrap: 'wrap',
                         marginBottom: 24,
                         padding: 12,
-                        borderRadius: 14,
-                        border: '1px solid rgba(55,65,81,0.5)',
-                        background: 'rgba(2,6,23,0.4)',
+                        borderRadius: radius.md,
+                        border: `1px solid ${t.border}`,
+                        background: t.surfaceInset,
                     }}
                 >
                     {NAV_ITEMS.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => scrollTo(item.id)}
-                            style={{
-                                padding: '8px 14px',
-                                borderRadius: 999,
-                                border: '1px solid rgba(55,65,81,0.7)',
-                                background: 'rgba(15,23,42,0.8)',
-                                color: '#e5e7eb',
-                                fontSize: 13,
-                                cursor: 'pointer',
-                            }}
+                            style={{ ...button('secondary', 'sm'), borderRadius: radius.pill }}
                         >
                             {item.label}
                         </button>

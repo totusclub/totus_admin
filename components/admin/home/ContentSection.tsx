@@ -16,7 +16,29 @@ import {
     type HomeRecommendedHotel,
     type HomeSections,
 } from '@/lib/home-content-api';
-import { inputStyle, sectionBox, sectionDesc, sectionTitle } from './styles';
+import { inputStyle, sectionBox, sectionDesc, sectionTitle, rowStyle, button, radius, text, t } from '@/lib/theme';
+import Icon from '@/components/Icon';
+
+function dropZoneStyle(preview: string): React.CSSProperties {
+    return {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 120,
+        borderRadius: radius.md,
+        border: `1px dashed ${t.border}`,
+        background: preview ? `center/cover url(${preview})` : t.surfaceInset,
+        color: t.textTertiary,
+        boxSizing: 'border-box',
+    };
+}
+
+const thumbStyle: React.CSSProperties = {
+    width: 80,
+    height: 60,
+    borderRadius: radius.sm,
+    flexShrink: 0,
+};
 
 export default function ContentSection() {
     const [sections, setSections] = useState<HomeSections | null>(null);
@@ -53,7 +75,7 @@ export default function ContentSection() {
     };
 
     if (loading) {
-        return <section style={sectionBox}><p style={{ color: '#9ca3af' }}>Загрузка контента...</p></section>;
+        return <section style={sectionBox}><p style={{ ...text.caption, margin: 0 }}>Загрузка контента...</p></section>;
     }
 
     return (
@@ -65,7 +87,7 @@ export default function ContentSection() {
                     <input value={sections?.recommended_title || ''} onChange={(e) => setSections((prev) => prev ? { ...prev, recommended_title: e.target.value } : prev)} placeholder="Начните планирование путешествия здесь" style={inputStyle} />
                     <input value={sections?.destinations_title || ''} onChange={(e) => setSections((prev) => prev ? { ...prev, destinations_title: e.target.value } : prev)} placeholder="Популярные направления" style={inputStyle} />
                 </div>
-                <button onClick={handleSaveSections} disabled={savingSections} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={handleSaveSections} disabled={savingSections} style={{ ...button('primary'), opacity: savingSections ? 0.6 : 1 }}>
                     {savingSections ? 'Сохранение...' : 'Сохранить заголовки'}
                 </button>
             </section>
@@ -153,14 +175,18 @@ function HotelsSection({ hotels, onChange }: { hotels: HomeRecommendedHotel[]; o
                     <h3 style={sectionTitle}>Рекомендуемые отели</h3>
                     <p style={{ ...sectionDesc, marginBottom: 0 }}>Блок «Начните планирование путешествия здесь».</p>
                 </div>
-                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); resetForm(); }} style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', cursor: 'pointer', height: 'fit-content' }}>
+                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); resetForm(); }} style={{ ...button('primary', 'sm'), height: 'fit-content' }}>
+                    <Icon name={showCreate ? 'close' : 'plus'} size={16} />
                     {showCreate ? 'Скрыть' : 'Добавить'}
                 </button>
             </div>
             {(showCreate || editingId) && (
                 <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-                    <div style={{ height: 120, borderRadius: 12, background: preview ? `center/cover url(${preview})` : 'rgba(15,23,42,0.6)' }} />
-                    <label style={{ color: '#e5e7eb', cursor: 'pointer', width: 'fit-content' }}>
+                    <div style={dropZoneStyle(preview)}>
+                        {!preview && <Icon name="photo" size={28} />}
+                    </div>
+                    <label style={{ ...button('secondary'), width: 'fit-content' }}>
+                        <Icon name="upload" size={16} />
                         Выбрать фото
                         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                             const next = e.target.files?.[0] || null;
@@ -175,19 +201,25 @@ function HotelsSection({ hotels, onChange }: { hotels: HomeRecommendedHotel[]; o
                     <input value={imageUrl} onChange={(e) => { setImageUrl(e.target.value); setPreview(e.target.value); }} placeholder="URL изображения (если без загрузки)" style={inputStyle} />
                     <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="Рейтинг" style={inputStyle} />
                     <input value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="Порядок" style={inputStyle} />
-                    <button onClick={handleSave} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff' }}>{saving ? 'Сохранение...' : editingId ? 'Сохранить' : 'Добавить'}</button>
+                    <button onClick={handleSave} disabled={saving} style={{ ...button('primary'), width: 'fit-content', opacity: saving ? 0.6 : 1 }}>{saving ? 'Сохранение...' : editingId ? 'Сохранить' : 'Добавить'}</button>
                 </div>
             )}
             <div style={{ display: 'grid', gap: 12 }}>
                 {hotels.map((hotel) => (
-                    <div key={hotel.id} style={{ padding: 14, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ width: 80, height: 60, borderRadius: 8, background: `center/cover url(${hotel.image})` }} />
+                    <div key={hotel.id} style={{ ...rowStyle, gap: 14, flexWrap: 'wrap' }}>
+                        <div style={{ ...thumbStyle, background: `center/cover url(${hotel.image})` }} />
                         <div style={{ flex: 1, minWidth: 180 }}>
-                            <p style={{ margin: 0, color: '#f9fafb', fontWeight: 600 }}>{hotel.name}</p>
-                            <p style={{ margin: '4px 0 0', color: '#9ca3af', fontSize: 13 }}>{hotel.city} · ID {hotel.hotel_id}</p>
+                            <p style={{ margin: 0, ...text.cardTitle }}>{hotel.name}</p>
+                            <p style={{ margin: '4px 0 0', ...text.caption }}>{hotel.city} · ID {hotel.hotel_id}</p>
                         </div>
-                        <button onClick={() => startEdit(hotel)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Изменить</button>
-                        <button onClick={async () => { if (!confirm(`Удалить «${hotel.name}»?`)) return; await deleteHomeHotel(hotel.id); onChange(hotels.filter((h) => h.id !== hotel.id)); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>Удалить</button>
+                        <button onClick={() => startEdit(hotel)} style={button('secondary', 'sm')}>
+                            <Icon name="edit" size={16} />
+                            Изменить
+                        </button>
+                        <button onClick={async () => { if (!confirm(`Удалить «${hotel.name}»?`)) return; await deleteHomeHotel(hotel.id); onChange(hotels.filter((h) => h.id !== hotel.id)); }} style={button('danger', 'sm')}>
+                            <Icon name="delete" size={16} />
+                            Удалить
+                        </button>
                     </div>
                 ))}
             </div>
@@ -240,31 +272,44 @@ function DestinationsSection({ destinations, onChange }: { destinations: HomePop
                     <h3 style={sectionTitle}>Популярные направления</h3>
                     <p style={{ ...sectionDesc, marginBottom: 0 }}>Карточки направлений на главной.</p>
                 </div>
-                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); resetForm(); }} style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', cursor: 'pointer', height: 'fit-content' }}>
+                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); resetForm(); }} style={{ ...button('primary', 'sm'), height: 'fit-content' }}>
+                    <Icon name={showCreate ? 'close' : 'plus'} size={16} />
                     {showCreate ? 'Скрыть' : 'Добавить'}
                 </button>
             </div>
             {(showCreate || editingId) && (
                 <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-                    <div style={{ height: 120, borderRadius: 12, background: preview ? `center/cover url(${preview})` : 'rgba(15,23,42,0.6)' }} />
-                    <label style={{ color: '#e5e7eb', cursor: 'pointer' }}>Выбрать фото<input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const next = e.target.files?.[0] || null; if (!next) return; setFile(next); setPreview(URL.createObjectURL(next)); }} /></label>
+                    <div style={dropZoneStyle(preview)}>
+                        {!preview && <Icon name="photo" size={28} />}
+                    </div>
+                    <label style={{ ...button('secondary'), width: 'fit-content' }}>
+                        <Icon name="upload" size={16} />
+                        Выбрать фото
+                        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const next = e.target.files?.[0] || null; if (!next) return; setFile(next); setPreview(URL.createObjectURL(next)); }} />
+                    </label>
                     <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" style={inputStyle} />
                     <input value={toCountry} onChange={(e) => setToCountry(e.target.value)} placeholder="Код страны (EG, TR...)" style={inputStyle} />
                     <input value={imageUrl} onChange={(e) => { setImageUrl(e.target.value); setPreview(e.target.value); }} placeholder="URL изображения" style={inputStyle} />
                     <input value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="Порядок" style={inputStyle} />
-                    <button onClick={handleSave} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff' }}>{saving ? 'Сохранение...' : editingId ? 'Сохранить' : 'Добавить'}</button>
+                    <button onClick={handleSave} disabled={saving} style={{ ...button('primary'), width: 'fit-content', opacity: saving ? 0.6 : 1 }}>{saving ? 'Сохранение...' : editingId ? 'Сохранить' : 'Добавить'}</button>
                 </div>
             )}
             <div style={{ display: 'grid', gap: 12 }}>
                 {destinations.map((item) => (
-                    <div key={item.id} style={{ padding: 14, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ width: 80, height: 60, borderRadius: 8, background: `center/cover url(${item.image})` }} />
+                    <div key={item.id} style={{ ...rowStyle, gap: 14, flexWrap: 'wrap' }}>
+                        <div style={{ ...thumbStyle, background: `center/cover url(${item.image})` }} />
                         <div style={{ flex: 1, minWidth: 180 }}>
-                            <p style={{ margin: 0, color: '#f9fafb', fontWeight: 600 }}>{item.name}</p>
-                            <p style={{ margin: '4px 0 0', color: '#9ca3af', fontSize: 13 }}>{item.to_country}</p>
+                            <p style={{ margin: 0, ...text.cardTitle }}>{item.name}</p>
+                            <p style={{ margin: '4px 0 0', ...text.caption }}>{item.to_country}</p>
                         </div>
-                        <button onClick={() => { setEditingId(item.id); setName(item.name); setToCountry(item.to_country); setSortOrder(String(item.sort_order)); setImageUrl(item.image); setPreview(item.image); setFile(null); setShowCreate(false); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Изменить</button>
-                        <button onClick={async () => { if (!confirm(`Удалить «${item.name}»?`)) return; await deleteHomeDestination(item.id); onChange(destinations.filter((d) => d.id !== item.id)); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>Удалить</button>
+                        <button onClick={() => { setEditingId(item.id); setName(item.name); setToCountry(item.to_country); setSortOrder(String(item.sort_order)); setImageUrl(item.image); setPreview(item.image); setFile(null); setShowCreate(false); }} style={button('secondary', 'sm')}>
+                            <Icon name="edit" size={16} />
+                            Изменить
+                        </button>
+                        <button onClick={async () => { if (!confirm(`Удалить «${item.name}»?`)) return; await deleteHomeDestination(item.id); onChange(destinations.filter((d) => d.id !== item.id)); }} style={button('danger', 'sm')}>
+                            <Icon name="delete" size={16} />
+                            Удалить
+                        </button>
                     </div>
                 ))}
             </div>

@@ -2,13 +2,30 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getHomeBanners, getHomeHero, saveHomeBanner, saveHomeHero, type HomeBanner, type HomeHero } from '@/lib/home-banners-api';
-import { inputStyle, sectionBox, sectionDesc, sectionTitle } from './styles';
+import { inputStyle, sectionBox, sectionDesc, sectionTitle, button, radius, text, t } from '@/lib/theme';
+import Icon from '@/components/Icon';
 
 interface SlotState {
     url: string;
     file: File | null;
     preview: string;
     saving: boolean;
+}
+
+function dropZoneStyle(preview: string, height: number): React.CSSProperties {
+    return {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height,
+        borderRadius: radius.md,
+        border: `1px dashed ${t.border}`,
+        background: preview ? `center/cover url(${preview})` : t.surfaceInset,
+        color: t.textTertiary,
+        marginBottom: 12,
+        boxSizing: 'border-box',
+    };
 }
 
 function HeroBlock({ hero, onSaved }: { hero?: HomeHero; onSaved: (hero: HomeHero) => void }) {
@@ -40,9 +57,12 @@ function HeroBlock({ hero, onSaved }: { hero?: HomeHero; onSaved: (hero: HomeHer
 
     return (
         <div style={{ marginBottom: 20 }}>
-            <h4 style={{ margin: '0 0 12px', color: '#e5e7eb', fontSize: 15 }}>Hero-блок</h4>
-            <div style={{ width: '100%', height: 180, borderRadius: 14, border: '1px dashed rgba(148,163,184,0.4)', background: preview ? `center/cover url(${preview})` : 'rgba(15,23,42,0.6)', marginBottom: 12 }} />
-            <label style={{ display: 'inline-block', padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(55,65,81,0.8)', color: '#e5e7eb', fontSize: 13, cursor: 'pointer', marginBottom: 12 }}>
+            <h4 style={{ margin: '0 0 12px', ...text.cardTitle }}>Hero-блок</h4>
+            <div style={dropZoneStyle(preview, 180)}>
+                {!preview && <Icon name="photo" size={28} />}
+            </div>
+            <label style={{ ...button('secondary'), marginBottom: 12 }}>
+                <Icon name="upload" size={16} />
                 Выбрать фото
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                     const next = e.target.files?.[0] || null;
@@ -52,7 +72,7 @@ function HeroBlock({ hero, onSaved }: { hero?: HomeHero; onSaved: (hero: HomeHer
                 }} />
             </label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок hero" style={{ ...inputStyle, marginBottom: 12 }} />
-            <button onClick={handleSave} disabled={saving || !title.trim()} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={handleSave} disabled={saving || !title.trim()} style={{ ...button('primary'), opacity: saving || !title.trim() ? 0.6 : 1 }}>
                 {saving ? 'Сохранение...' : 'Сохранить hero'}
             </button>
         </div>
@@ -81,10 +101,13 @@ function BannerSlot({ position, banner, onSaved }: { position: number; banner?: 
     };
 
     return (
-        <div style={{ flex: '1 1 300px', minWidth: 260, padding: 16, borderRadius: 14, border: '1px solid rgba(55,65,81,0.5)', background: 'rgba(15,23,42,0.4)' }}>
-            <h4 style={{ margin: '0 0 12px', color: '#e5e7eb' }}>Баннер {position}</h4>
-            <div style={{ width: '100%', height: 140, borderRadius: 12, border: '1px dashed rgba(148,163,184,0.4)', background: state.preview ? `center/cover url(${state.preview})` : 'rgba(15,23,42,0.6)', marginBottom: 12 }} />
-            <label style={{ display: 'inline-block', padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(55,65,81,0.8)', color: '#e5e7eb', fontSize: 13, cursor: 'pointer', marginBottom: 12 }}>
+        <div style={{ flex: '1 1 300px', minWidth: 260, padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface, boxSizing: 'border-box' }}>
+            <h4 style={{ margin: '0 0 12px', ...text.cardTitle }}>Баннер {position}</h4>
+            <div style={dropZoneStyle(state.preview, 140)}>
+                {!state.preview && <Icon name="photo" size={28} />}
+            </div>
+            <label style={{ ...button('secondary'), marginBottom: 12 }}>
+                <Icon name="upload" size={16} />
                 Выбрать фото
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                     const file = e.target.files?.[0] || null;
@@ -93,7 +116,7 @@ function BannerSlot({ position, banner, onSaved }: { position: number; banner?: 
                 }} />
             </label>
             <input value={state.url} onChange={(e) => setState((prev) => ({ ...prev, url: e.target.value }))} placeholder="Ссылка" style={{ ...inputStyle, marginBottom: 12 }} />
-            <button onClick={handleSave} disabled={state.saving} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={handleSave} disabled={state.saving} style={{ ...button('primary'), opacity: state.saving ? 0.6 : 1 }}>
                 {state.saving ? 'Сохранение...' : 'Сохранить'}
             </button>
         </div>
@@ -127,7 +150,7 @@ export default function HeroBannersSection() {
         <section id="hero-banners" style={sectionBox}>
             <h3 style={sectionTitle}>Hero и баннеры</h3>
             <p style={sectionDesc}>Верхний блок и два баннера под поиском на главной.</p>
-            {loading ? <p style={{ color: '#9ca3af' }}>Загрузка...</p> : (
+            {loading ? <p style={{ ...text.caption, margin: 0 }}>Загрузка...</p> : (
                 <>
                     <HeroBlock hero={hero || undefined} onSaved={setHero} />
                     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
