@@ -1,30 +1,49 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import Icon, { type IconName } from './Icon';
+import ThemeToggle from './ThemeToggle';
+import { getStoredUser, removeUser, type User } from '@/lib/auth-api';
+import { layout, radius, t } from '@/lib/theme';
 
 type NavLink = {
     href: string;
     label: string;
-    icon: string;
-    /** External links open in a new tab and are never highlighted as active. */
+    icon: IconName;
+    /** Внешние ссылки открываются в новой вкладке и никогда не подсвечиваются. */
     external?: boolean;
 };
 
 const LINKS: NavLink[] = [
-    { href: '/users', label: 'Пользователи', icon: '👥' },
-    { href: '/orders', label: 'Заказы', icon: '🧳' },
-    { href: '/lt-orders', label: 'Level Travel', icon: '🌍' },
-    { href: '/order-requests', label: 'Обращения', icon: '📨' },
-    { href: '/pages', label: 'Страницы', icon: '📄' },
-    { href: '/home-content', label: 'Главная', icon: '🏠' },
-    { href: '/callback-requests', label: 'Заявки на звонок', icon: '📱' },
-    // The calling panel lives in a separate app (calling_v2).
-    { href: 'https://calling.totus.club', label: 'Звонки', icon: '📞', external: true },
+    { href: '/users', label: 'Пользователи', icon: 'user' },
+    { href: '/orders', label: 'Заказы', icon: 'luggage' },
+    { href: '/lt-orders', label: 'Level Travel', icon: 'globe' },
+    { href: '/order-requests', label: 'Обращения', icon: 'mail' },
+    { href: '/pages', label: 'Страницы', icon: 'file' },
+    { href: '/home-content', label: 'Главная', icon: 'home' },
+    { href: '/callback-requests', label: 'Заявки на звонок', icon: 'smartPhone' },
+    // Панель звонков живёт в отдельном приложении (calling_v2).
+    { href: 'https://calling.totus.club', label: 'Звонки', icon: 'phone', external: true },
 ];
 
 export default function AdminNav() {
     const pathname = usePathname();
     const router = useRouter();
+    const [user, setUser] = useState<User | null>(null);
+
+    useEffect(() => {
+        setUser(getStoredUser());
+    }, []);
+
+    // Флаг сдвигает контент PageShell вправо. На экране входа навигации нет,
+    // поэтому страница остаётся во всю ширину.
+    useEffect(() => {
+        document.body.dataset.hasNav = '1';
+        return () => {
+            delete document.body.dataset.hasNav;
+        };
+    }, []);
 
     const isActive = (link: NavLink) => {
         if (link.external) return false;
@@ -40,57 +59,124 @@ export default function AdminNav() {
         router.push(link.href);
     };
 
+    const logout = () => {
+        removeUser();
+        router.push('/login');
+    };
+
     return (
-        <div
+        <nav
+            aria-label="Разделы админки"
             style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                bottom: 0,
+                width: layout.sidebar,
                 display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: 8,
-                borderRadius: 999,
-                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(2,6,23,0.95))',
-                border: '1px solid rgba(55,65,81,0.6)',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-                backdropFilter: 'blur(20px)',
-                width: 'fit-content',
+                flexDirection: 'column',
+                background: t.surface,
+                borderRight: `1px solid ${t.border}`,
+                zIndex: 40,
             }}
         >
-            {LINKS.map((link) => {
-                const active = isActive(link);
-                return (
-                    <button
-                        key={link.href}
-                        onClick={() => navigate(link)}
-                        title={link.external ? 'Откроется в новой вкладке' : undefined}
+            <div style={{ padding: '24px 20px 20px' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: t.accent, letterSpacing: '-0.02em' }}>
+                    TOTUS
+                </div>
+                <div style={{ fontSize: 12, color: t.textTertiary, marginTop: 2 }}>Админка</div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {LINKS.map((link) => {
+                    const active = isActive(link);
+                    return (
+                        <button
+                            key={link.href}
+                            onClick={() => navigate(link)}
+                            title={link.external ? 'Откроется в новой вкладке' : undefined}
+                            aria-current={active ? 'page' : undefined}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                width: '100%',
+                                padding: '10px 12px',
+                                borderRadius: radius.sm,
+                                border: 'none',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                fontSize: 14,
+                                fontFamily: 'inherit',
+                                fontWeight: active ? 600 : 500,
+                                color: active ? t.accent : t.textSecondary,
+                                background: active ? t.accentSoft : 'transparent',
+                                transition: 'background 0.15s, color 0.15s',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!active) e.currentTarget.style.background = t.surfaceHover;
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!active) e.currentTarget.style.background = 'transparent';
+                            }}
+                        >
+                            <Icon name={link.icon} size={20} />
+                            <span style={{ flex: 1 }}>{link.label}</span>
+                            {link.external && <Icon name="linkExternal" size={14} style={{ opacity: 0.6 }} />}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div style={{ padding: 12, borderTop: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <ThemeToggle />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 0' }}>
+                    <div
+                        aria-hidden
                         style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: radius.pill,
+                            background: t.accentSoft,
+                            color: t.accent,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 8,
-                            padding: '10px 18px',
-                            borderRadius: 999,
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: 14,
-                            fontWeight: 600,
-                            color: active ? '#f9fafb' : '#9ca3af',
-                            background: active ? '#FE732E' : 'transparent',
-                            boxShadow: active ? '0 8px 24px rgba(254,115,46,0.45)' : 'none',
-                            transition: 'all 0.2s',
-                            whiteSpace: 'nowrap',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!active) e.currentTarget.style.color = '#e5e7eb';
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!active) e.currentTarget.style.color = '#9ca3af';
+                            justifyContent: 'center',
+                            flexShrink: 0,
                         }}
                     >
-                        <span style={{ fontSize: 16 }}>{link.icon}</span>
-                        {link.label}
-                        {link.external && <span style={{ fontSize: 11, opacity: 0.7 }}>↗</span>}
+                        <Icon name="user" size={18} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {user?.name || user?.fName || 'Агент'}
+                        </div>
+                        <div style={{ fontSize: 11, color: t.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {user?.email || ''}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={logout}
+                        title="Выйти"
+                        aria-label="Выйти"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 32,
+                            height: 32,
+                            borderRadius: radius.sm,
+                            border: 'none',
+                            background: 'transparent',
+                            color: t.textTertiary,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <Icon name="logout" size={18} />
                     </button>
-                );
-            })}
-        </div>
+                </div>
+            </div>
+        </nav>
     );
 }
