@@ -389,13 +389,13 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
         focusEditor();
 
         const html = event.clipboardData.getData('text/html');
-        const text = event.clipboardData.getData('text/plain');
+        const plainText = event.clipboardData.getData('text/plain');
 
         if (html) {
             const clean = sanitizeEditorHtml(html);
             document.execCommand('insertHTML', false, clean);
         } else {
-            document.execCommand('insertText', false, text);
+            document.execCommand('insertText', false, plainText);
         }
 
         syncValue();
