@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { deleteCallbackRequest, formatCallbackDate, formatCallbackPhone, getCallbackRequests, type CallbackRequest } from '@/lib/callback-requests-api';
-import { inputStyle, sectionBox, sectionDesc, sectionTitle } from './styles';
+import { badge, button, inputStyle, radius, sectionBox, sectionDesc, sectionTitle, t, text } from '@/lib/theme';
+import Icon from '@/components/Icon';
 
 export default function CallbackRequestsSection() {
     const [requests, setRequests] = useState<CallbackRequest[]>([]);
@@ -27,34 +28,43 @@ export default function CallbackRequestsSection() {
 
     return (
         <section id="callbacks" style={sectionBox}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 <div>
                     <h3 style={sectionTitle}>Заявки на звонок</h3>
-                    <p style={{ ...sectionDesc, marginBottom: 0 }}>Номера из блока «Перезвоните мне». Всего: {requests.length}</p>
+                    <p style={{ ...sectionDesc, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        Номера из блока «Перезвоните мне».
+                        <span style={badge('neutral')}>Всего: {requests.length}</span>
+                    </p>
                 </div>
-                <button onClick={load} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid #555', background: 'transparent', color: '#fff', cursor: 'pointer' }}>Обновить</button>
+                <button onClick={load} style={button('secondary', 'sm')}><Icon name="refresh" size={16} />Обновить</button>
             </div>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по телефону" style={{ ...inputStyle, marginBottom: 14 }} />
-            {loading ? <p style={{ color: '#9ca3af' }}>Загрузка...</p> : filtered.length === 0 ? <p style={{ color: '#9ca3af' }}>Заявок нет.</p> : (
-                <div style={{ overflowX: 'auto' }}>
+            <div style={{ position: 'relative', marginBottom: 16 }}>
+                <Icon name="search" size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.textTertiary, pointerEvents: 'none' }} />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по телефону" style={{ ...inputStyle, paddingLeft: 42 }} />
+            </div>
+            {loading ? <p style={{ ...text.body, color: t.textTertiary }}>Загрузка...</p> : filtered.length === 0 ? <p style={{ ...text.body, color: t.textTertiary }}>Заявок нет.</p> : (
+                <div style={{ overflowX: 'auto', borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(55,65,81,0.8)' }}>
+                            <tr style={{ borderBottom: `1px solid ${t.border}` }}>
                                 {['ID', 'Телефон', 'Дата', ''].map((title) => (
-                                    <th key={title} style={{ textAlign: 'left', padding: '10px 8px', color: '#9ca3af', fontSize: 12 }}>{title}</th>
+                                    <th key={title} style={{ textAlign: 'left', padding: '12px 16px', ...text.caption, fontWeight: 600 }}>{title}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.map((item) => (
-                                <tr key={item.id} style={{ borderBottom: '1px solid rgba(31,41,55,0.8)' }}>
-                                    <td style={{ padding: '12px 8px', color: '#e5e7eb' }}>#{item.id}</td>
-                                    <td style={{ padding: '12px 8px', color: '#f9fafb', fontWeight: 600 }}>
-                                        <a href={`tel:+${item.phone}`} style={{ color: '#f9fafb', textDecoration: 'none' }}>{item.phone_display || formatCallbackPhone(item.phone)}</a>
+                                <tr key={item.id} style={{ borderBottom: `1px solid ${t.border}` }}>
+                                    <td style={{ padding: '12px 16px' }}><span style={badge('neutral')}>#{item.id}</span></td>
+                                    <td style={{ padding: '12px 16px' }}>
+                                        <a href={`tel:+${item.phone}`} style={{ ...text.cardTitle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                            <Icon name="phone" size={16} style={{ color: t.textTertiary }} />
+                                            {item.phone_display || formatCallbackPhone(item.phone)}
+                                        </a>
                                     </td>
-                                    <td style={{ padding: '12px 8px', color: '#9ca3af', fontSize: 14 }}>{formatCallbackDate(item.created_at)}</td>
-                                    <td style={{ padding: '12px 8px' }}>
-                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteCallbackRequest(item.id); setRequests((prev) => prev.filter((row) => row.id !== item.id)); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>Удалить</button>
+                                    <td style={{ padding: '12px 16px', ...text.body, color: t.textTertiary }}>{formatCallbackDate(item.created_at)}</td>
+                                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteCallbackRequest(item.id); setRequests((prev) => prev.filter((row) => row.id !== item.id)); }} style={button('danger', 'sm')}><Icon name="delete" size={16} />Удалить</button>
                                     </td>
                                 </tr>
                             ))}
