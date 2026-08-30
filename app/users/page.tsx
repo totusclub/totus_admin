@@ -4,16 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
+import Icon from '@/components/Icon';
+import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
 import { getAllUsers, getUserDisplayName, type User } from '@/lib/users-api';
-
-const cardStyle: React.CSSProperties = {
-    padding: 24,
-    borderRadius: 24,
-    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
-    border: '1px solid rgba(55,65,81,0.6)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
-    backdropFilter: 'blur(20px)',
-};
 
 export default function UsersPage() {
     const router = useRouter();
@@ -74,10 +67,10 @@ export default function UsersPage() {
                     }}
                 >
                     <div>
-                        <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 24, fontWeight: 700, marginBottom: 6 }}>
+                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
                             Пользователи
                         </h1>
-                        <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
+                        <div style={text.caption}>
                             Всего: {users.length} · Онлайн: {onlineCount}
                         </div>
                     </div>
@@ -85,39 +78,40 @@ export default function UsersPage() {
                         onClick={loadUsers}
                         disabled={loading}
                         style={{
-                            padding: '10px 18px',
-                            borderRadius: 999,
-                            border: '1px solid rgba(55,65,81,0.8)',
-                            backgroundColor: 'rgba(15,23,42,0.95)',
-                            color: '#e5e7eb',
+                            ...button('secondary', 'md'),
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            fontSize: 13,
-                            fontWeight: 600,
+                            opacity: loading ? 0.6 : 1,
                         }}
                     >
+                        <Icon name="refresh" size={16} />
                         {loading ? 'Обновление...' : 'Обновить'}
                     </button>
                 </div>
 
-                <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Поиск по имени, email, телефону, ID..."
-                    style={{
-                        width: '100%',
-                        padding: '14px 18px',
-                        borderRadius: 14,
-                        border: '1px solid rgba(55,65,81,0.6)',
-                        background: 'rgba(2,6,23,0.6)',
-                        color: '#f9fafb',
-                        fontSize: 14,
-                        marginBottom: 20,
-                        outline: 'none',
-                    }}
-                />
+                <div style={{ position: 'relative', marginBottom: 20 }}>
+                    <span
+                        style={{
+                            position: 'absolute',
+                            left: 16,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: t.textTertiary,
+                            display: 'flex',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        <Icon name="search" size={18} />
+                    </span>
+                    <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Поиск по имени, email, телефону, ID..."
+                        style={{ ...inputStyle, padding: '12px 16px 12px 46px', outline: 'none' }}
+                    />
+                </div>
 
                 {filtered.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
+                    <div style={{ padding: 24, textAlign: 'center', ...text.body, color: t.textTertiary }}>
                         {loading ? 'Загрузка...' : 'Пользователи не найдены'}
                     </div>
                 ) : (
@@ -127,9 +121,9 @@ export default function UsersPage() {
                                 key={user.id}
                                 style={{
                                     padding: '16px 18px',
-                                    borderRadius: 18,
-                                    border: '1px solid rgba(55,65,81,0.6)',
-                                    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
+                                    borderRadius: radius.md,
+                                    border: `1px solid ${t.border}`,
+                                    background: t.surface,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
@@ -141,28 +135,24 @@ export default function UsersPage() {
                                         style={{
                                             width: 44,
                                             height: 44,
-                                            borderRadius: 999,
+                                            borderRadius: radius.pill,
                                             flexShrink: 0,
-                                            background: user.online
-                                                ? 'conic-gradient(from 180deg, #22c55e, #16a34a, #15803d, #22c55e)'
-                                                : 'linear-gradient(135deg, rgba(55,65,81,0.8), rgba(31,41,55,0.8))',
+                                            background: user.online ? t.success : t.surfaceInset,
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: '#e5e7eb',
-                                            fontWeight: 700,
+                                            color: user.online ? t.textOnAccent : t.textSecondary,
+                                            fontWeight: 600,
                                             fontSize: 18,
                                         }}
                                     >
                                         {getUserDisplayName(user).charAt(0).toUpperCase()}
                                     </div>
                                     <div style={{ minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
                                             <strong
                                                 style={{
-                                                    color: '#f9fafb',
-                                                    fontSize: 16,
-                                                    fontWeight: 700,
+                                                    ...text.cardTitle,
                                                     whiteSpace: 'nowrap',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
@@ -172,44 +162,38 @@ export default function UsersPage() {
                                             </strong>
                                             <span
                                                 style={{
-                                                    padding: '3px 9px',
-                                                    borderRadius: 999,
-                                                    fontSize: 11,
-                                                    fontWeight: 600,
-                                                    backgroundColor: user.online ? 'rgba(34,197,94,0.15)' : 'rgba(55,65,81,0.7)',
-                                                    color: user.online ? '#bbf7d0' : '#e5e7eb',
-                                                    border: `1px solid ${user.online ? 'rgba(34,197,94,0.5)' : 'rgba(55,65,81,0.9)'}`,
+                                                    ...badge(user.online ? 'success' : 'neutral'),
                                                     whiteSpace: 'nowrap',
                                                 }}
                                             >
                                                 {user.online ? 'Онлайн' : 'Офлайн'}
                                             </span>
                                             {user.access === 1 || user.access === true ? (
-                                                <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>Заблок.</span>
+                                                <span style={{ ...badge('error'), whiteSpace: 'nowrap' }}>Заблок.</span>
                                             ) : null}
                                         </div>
                                         <div
                                             style={{
+                                                ...text.caption,
                                                 fontSize: 12,
-                                                color: '#9ca3af',
                                                 display: 'flex',
                                                 flexWrap: 'wrap',
                                                 gap: 8,
                                                 alignItems: 'center',
                                             }}
                                         >
-                                            <span>ID: <strong style={{ color: '#FE732E' }}>{user.loyaltyId}</strong></span>
-                                            <span style={{ opacity: 0.5 }}>•</span>
+                                            <span>ID: <strong style={{ color: t.accent }}>{user.loyaltyId}</strong></span>
+                                            <span style={{ color: t.textDisabled }}>•</span>
                                             <span>#{user.id}</span>
                                             {user.phone && (
                                                 <>
-                                                    <span style={{ opacity: 0.5 }}>•</span>
+                                                    <span style={{ color: t.textDisabled }}>•</span>
                                                     <span>{user.phone}</span>
                                                 </>
                                             )}
                                             {user.email && (
                                                 <>
-                                                    <span style={{ opacity: 0.5 }}>•</span>
+                                                    <span style={{ color: t.textDisabled }}>•</span>
                                                     <span>{user.email}</span>
                                                 </>
                                             )}
@@ -219,18 +203,14 @@ export default function UsersPage() {
                                 <button
                                     onClick={() => router.push(`/orders?userId=${user.id}`)}
                                     style={{
-                                        padding: '10px 18px',
-                                        borderRadius: 999,
-                                        border: '1px solid rgba(254,115,46,0.5)',
-                                        background: 'rgba(254,115,46,0.12)',
-                                        color: '#FE732E',
-                                        cursor: 'pointer',
-                                        fontSize: 13,
-                                        fontWeight: 700,
-                                        whiteSpace: 'nowrap',
+                                        ...button('secondary', 'md'),
+                                        background: t.accentSoft,
+                                        color: t.accent,
+                                        border: `1px solid ${t.accentBorder}`,
                                     }}
                                 >
-                                    Заказы →
+                                    Заказы
+                                    <Icon name="chevronRight" size={16} />
                                 </button>
                             </div>
                         ))}

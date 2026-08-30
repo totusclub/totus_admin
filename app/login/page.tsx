@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login, storeUser, type LoginCredentials } from '@/lib/auth-api';
+import PageShell from '@/components/PageShell';
+import Icon from '@/components/Icon';
+import { t, radius, text, cardStyle, inputStyle, button } from '@/lib/theme';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,11 +22,11 @@ export default function LoginPage() {
     try {
       const credentials: LoginCredentials = { email, password };
       const response = await login(credentials);
-      
+
       if (response.ok && response.user) {
         // Store user data
         storeUser(response.user);
-        
+
         // Redirect to the first admin section
         router.push('/users');
       } else {
@@ -36,212 +39,134 @@ export default function LoginPage() {
     }
   };
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    marginBottom: 6,
+    ...text.caption,
+    color: t.textSecondary,
+    fontWeight: 500,
+  };
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '32px 16px',
-        background:
-          'radial-gradient(circle at top, #0f172a 0, #020617 45%, #000000 100%)',
-      }}
-    >
+    <PageShell>
       <div
         style={{
-          width: '100%',
-          maxWidth: 420,
-          borderRadius: 24,
-          padding: '32px 28px 26px',
-          background:
-            'linear-gradient(145deg, rgba(15,23,42,0.96), rgba(17,24,39,0.98))',
-          border: '1px solid rgba(55,65,81,0.85)',
-          boxShadow:
-            '0 25px 70px rgba(15,23,42,0.95), 0 0 0 1px rgba(2,6,23,0.9)',
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            marginBottom: 24,
-            gap: 10,
-          }}
-        >
+        <div style={{ ...cardStyle, width: '100%', maxWidth: 420 }}>
           <div
             style={{
-              width: 54,
-              height: 54,
-              borderRadius: 999,
-              background:
-                'conic-gradient(from 180deg, #FE732E, #f97316, #22c55e, #0ea5e9, #4f46e5, #FE732E)',
-              padding: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              marginBottom: 24,
+              gap: 12,
             }}
           >
             <div
               style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: '999px',
-                backgroundColor: '#020617',
+                width: 54,
+                height: 54,
+                borderRadius: radius.pill,
+                background: t.accentSoft,
+                color: t.accent,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 24,
-                color: '#e5e7eb',
-                fontWeight: 800,
               }}
             >
-              T
+              <Icon name="user" size={26} />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <h1 style={{ ...text.pageTitle, margin: '0 0 4px' }}>Totus Admin</h1>
+              <p style={{ ...text.caption, margin: 0 }}>
+                Войдите как агент, чтобы управлять платформой
+              </p>
             </div>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <h1
-              style={{
-                marginBottom: 4,
-                color: '#f9fafb',
-                fontSize: 24,
-                fontWeight: 700,
-                letterSpacing: 0.4,
-              }}
-            >
-              Totus Admin
-            </h1>
-            <p
-              style={{
-                margin: 0,
-                color: '#9ca3af',
-                fontSize: 13,
-              }}
-            >
-              Войдите как агент, чтобы управлять платформой
-            </p>
-          </div>
-        </div>
 
-        {error && (
+          {error && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 18,
+                padding: '10px 12px',
+                background: t.errorSoft,
+                border: `1px solid ${t.error}`,
+                borderRadius: radius.sm,
+                color: t.error,
+                fontSize: 13,
+                lineHeight: '18px',
+              }}
+            >
+              <Icon name="info" size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+                placeholder="agent@totus.club"
+                style={{ ...inputStyle, outline: 'none' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 22 }}>
+              <label style={labelStyle}>Пароль</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+                placeholder="Введите пароль агента"
+                style={{ ...inputStyle, outline: 'none' }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                ...button('primary', 'lg'),
+                width: '100%',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? 'Вход...' : 'Войти'}
+            </button>
+          </form>
+
           <div
             style={{
-              marginBottom: 18,
+              marginTop: 20,
               padding: '10px 12px',
-              backgroundColor: 'rgba(127,29,29,0.18)',
-              border: '1px solid rgba(248,113,113,0.55)',
-              borderRadius: 10,
-              color: '#fecaca',
-              fontSize: 13,
+              borderRadius: radius.md,
+              background: t.surfaceInset,
+              border: `1px dashed ${t.border}`,
+              ...text.caption,
+              textAlign: 'center',
             }}
           >
-            {error}
+            Только пользователи с ролью <strong>agent</strong> могут войти в
+            систему.
           </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 18 }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: 6,
-                color: '#e5e7eb',
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="agent@totus.club"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: '1px solid rgba(75,85,99,0.9)',
-                backgroundColor: 'rgba(15,23,42,0.95)',
-                color: '#e5e7eb',
-                fontSize: 14,
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 22 }}>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: 6,
-                color: '#e5e7eb',
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              Пароль
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="Введите пароль агента"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: '1px solid rgba(75,85,99,0.9)',
-                backgroundColor: 'rgba(15,23,42,0.95)',
-                color: '#e5e7eb',
-                fontSize: 14,
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              borderRadius: 999,
-              border: 'none',
-              background: loading
-                ? '#374151'
-                : 'linear-gradient(135deg, #FE732E, #f97316)',
-              color: '#f9fafb',
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: loading
-                ? 'none'
-                : '0 16px 40px rgba(248,113,22,0.55)',
-            }}
-          >
-            {loading ? 'Вход...' : 'Войти'}
-          </button>
-        </form>
-
-        <div
-          style={{
-            marginTop: 20,
-            padding: '10px 12px',
-            borderRadius: 12,
-            backgroundColor: 'rgba(15,23,42,0.95)',
-            border: '1px dashed rgba(75,85,99,0.9)',
-            fontSize: 11,
-            color: '#9ca3af',
-            textAlign: 'center',
-          }}
-        >
-          Только пользователи с ролью <strong>agent</strong> могут войти в
-          систему.
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
