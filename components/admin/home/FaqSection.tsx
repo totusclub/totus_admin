@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createFaqItem, deleteFaqItem, getFaqItems, updateFaqItem, type FaqItem } from '@/lib/faq-api';
-import { inputStyle, sectionBox, sectionDesc, sectionTitle, textareaStyle } from './styles';
+import { badge, button, inputStyle, radius, sectionBox, sectionDesc, sectionTitle, t, text, textareaStyle } from '@/lib/theme';
+import Icon from '@/components/Icon';
 
 function FaqForm({ initial, onSave, onCancel, saving }: { initial?: FaqItem | null; onSave: (values: { question: string; answer: string }) => Promise<void>; onCancel?: () => void; saving: boolean }) {
     const [question, setQuestion] = useState(initial?.question || '');
@@ -18,8 +19,8 @@ function FaqForm({ initial, onSave, onCancel, saving }: { initial?: FaqItem | nu
             <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Вопрос" style={inputStyle} />
             <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Ответ" style={textareaStyle} />
             <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => onSave({ question, answer })} disabled={saving || !question.trim() || !answer.trim()} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff' }}>{saving ? 'Сохранение...' : initial ? 'Сохранить' : 'Добавить'}</button>
-                {onCancel && <button onClick={onCancel} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Отмена</button>}
+                <button onClick={() => onSave({ question, answer })} disabled={saving || !question.trim() || !answer.trim()} style={{ ...button('primary'), opacity: saving || !question.trim() || !answer.trim() ? 0.6 : 1 }}>{saving ? 'Сохранение...' : initial ? 'Сохранить' : 'Добавить'}</button>
+                {onCancel && <button onClick={onCancel} style={button('secondary')}>Отмена</button>}
             </div>
         </div>
     );
@@ -45,18 +46,25 @@ export default function FaqSection() {
 
     return (
         <section id="faq" style={sectionBox}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 <div>
                     <h3 style={sectionTitle}>FAQ</h3>
-                    <p style={{ ...sectionDesc, marginBottom: 0 }}>Вопросы и ответы на главной. Всего: {items.length}</p>
+                    <p style={{ ...sectionDesc, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        Вопросы и ответы на главной.
+                        <span style={badge('neutral')}>Всего: {items.length}</span>
+                    </p>
                 </div>
-                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); }} style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', cursor: 'pointer' }}>
+                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); }} style={button('primary', 'sm')}>
+                    {showCreate ? <Icon name="close" size={16} /> : <Icon name="plus" size={16} />}
                     {showCreate ? 'Скрыть' : 'Добавить вопрос'}
                 </button>
             </div>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск" style={{ ...inputStyle, marginBottom: 14 }} />
+            <div style={{ position: 'relative', marginBottom: 16 }}>
+                <Icon name="search" size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.textTertiary, pointerEvents: 'none' }} />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск" style={{ ...inputStyle, paddingLeft: 42 }} />
+            </div>
             {showCreate && (
-                <div style={{ marginBottom: 16, padding: 16, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)' }}>
+                <div style={{ marginBottom: 16, padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                     <FaqForm saving={saving} onCancel={() => setShowCreate(false)} onSave={async (values) => {
                         setSaving(true);
                         try {
@@ -69,10 +77,10 @@ export default function FaqSection() {
                     }} />
                 </div>
             )}
-            {loading ? <p style={{ color: '#9ca3af' }}>Загрузка...</p> : (
+            {loading ? <p style={{ ...text.body, color: t.textTertiary }}>Загрузка...</p> : (
                 <div style={{ display: 'grid', gap: 12 }}>
                     {filtered.map((item) => (
-                        <div key={item.id} style={{ padding: 16, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)' }}>
+                        <div key={item.id} style={{ padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                             {editingId === item.id ? (
                                 <FaqForm initial={item} saving={saving} onCancel={() => setEditingId(null)} onSave={async (values) => {
                                     setSaving(true);
@@ -86,11 +94,11 @@ export default function FaqSection() {
                                 }} />
                             ) : (
                                 <>
-                                    <p style={{ margin: '0 0 8px', color: '#f9fafb', fontWeight: 600 }}>{item.question}</p>
-                                    <p style={{ margin: '0 0 12px', color: '#9ca3af', fontSize: 14, whiteSpace: 'pre-wrap' }}>{item.answer}</p>
+                                    <p style={{ margin: '0 0 8px', ...text.cardTitle }}>{item.question}</p>
+                                    <p style={{ margin: '0 0 12px', ...text.body, whiteSpace: 'pre-wrap' }}>{item.answer}</p>
                                     <div style={{ display: 'flex', gap: 8 }}>
-                                        <button onClick={() => { setEditingId(item.id); setShowCreate(false); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Изменить</button>
-                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteFaqItem(item.id); setItems((prev) => prev.filter((row) => row.id !== item.id)); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>Удалить</button>
+                                        <button onClick={() => { setEditingId(item.id); setShowCreate(false); }} style={button('secondary', 'sm')}><Icon name="edit" size={16} />Изменить</button>
+                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteFaqItem(item.id); setItems((prev) => prev.filter((row) => row.id !== item.id)); }} style={button('danger', 'sm')}><Icon name="delete" size={16} />Удалить</button>
                                     </div>
                                 </>
                             )}

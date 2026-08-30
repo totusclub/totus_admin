@@ -9,7 +9,8 @@ import {
     updateFooterSocialLink,
     type FooterSocialLink,
 } from '@/lib/footer-social-api';
-import { inputStyle, sectionBox, sectionDesc, sectionTitle } from './styles';
+import { badge, button, inputStyle, radius, sectionBox, sectionDesc, sectionTitle, t, text } from '@/lib/theme';
+import Icon from '@/components/Icon';
 
 const ICON_LABELS: Record<string, string> = {
     vk: 'VK',
@@ -61,15 +62,15 @@ function SocialForm({
             </select>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Ссылка (https://...)" style={inputStyle} />
             <input value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} type="number" placeholder="Порядок" style={inputStyle} />
-            <label style={{ color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ ...text.body, color: t.textSecondary, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
                 Показывать в футере
             </label>
             <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => onSave({ title, icon, url, sort_order: Number(sortOrder) || 0, is_active: isActive })} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff' }}>
+                <button onClick={() => onSave({ title, icon, url, sort_order: Number(sortOrder) || 0, is_active: isActive })} disabled={saving} style={{ ...button('primary'), opacity: saving ? 0.6 : 1 }}>
                     {saving ? 'Сохранение...' : initial ? 'Сохранить' : 'Добавить'}
                 </button>
-                {onCancel && <button onClick={onCancel} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Отмена</button>}
+                {onCancel && <button onClick={onCancel} style={button('secondary')}>Отмена</button>}
             </div>
         </div>
     );
@@ -98,18 +99,22 @@ export default function FooterSocialSection() {
 
     return (
         <section id="footer-social" style={sectionBox}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 <div>
                     <h3 style={sectionTitle}>Соцсети в футере</h3>
-                    <p style={{ ...sectionDesc, marginBottom: 0 }}>Иконки и ссылки в подвале сайта. Всего: {items.length}</p>
+                    <p style={{ ...sectionDesc, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        Иконки и ссылки в подвале сайта.
+                        <span style={badge('neutral')}>Всего: {items.length}</span>
+                    </p>
                 </div>
-                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); }} style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', cursor: 'pointer' }}>
+                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); }} style={button('primary', 'sm')}>
+                    {showCreate ? <Icon name="close" size={16} /> : <Icon name="plus" size={16} />}
                     {showCreate ? 'Скрыть' : 'Добавить'}
                 </button>
             </div>
 
             {showCreate && (
-                <div style={{ marginBottom: 16, padding: 16, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)' }}>
+                <div style={{ marginBottom: 16, padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                     <SocialForm
                         icons={icons}
                         saving={saving}
@@ -130,10 +135,10 @@ export default function FooterSocialSection() {
                 </div>
             )}
 
-            {loading ? <p style={{ color: '#9ca3af' }}>Загрузка...</p> : (
+            {loading ? <p style={{ ...text.body, color: t.textTertiary }}>Загрузка...</p> : (
                 <div style={{ display: 'grid', gap: 12 }}>
                     {items.map((item) => (
-                        <div key={item.id} style={{ padding: 16, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)' }}>
+                        <div key={item.id} style={{ padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                             {editingId === item.id ? (
                                 <SocialForm
                                     initial={item}
@@ -155,19 +160,22 @@ export default function FooterSocialSection() {
                                 />
                             ) : (
                                 <>
-                                    <p style={{ margin: '0 0 6px', color: '#f9fafb', fontWeight: 600 }}>
+                                    <p style={{ margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...text.cardTitle }}>
                                         {item.title || ICON_LABELS[item.icon] || item.icon}
-                                        {!item.is_active && <span style={{ color: '#fca5a5', marginLeft: 8, fontSize: 12 }}>скрыто</span>}
+                                        {!item.is_active && <span style={badge('warning')}>скрыто</span>}
                                     </p>
-                                    <p style={{ margin: '0 0 6px', color: '#9ca3af', fontSize: 13 }}>Иконка: {item.icon} · Порядок: {item.sort_order}</p>
+                                    <p style={{ margin: '0 0 6px', ...text.caption }}>Иконка: {item.icon} · Порядок: {item.sort_order}</p>
                                     {item.url ? (
-                                        <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#fdba74', fontSize: 13 }}>{item.url}</a>
+                                        <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ ...text.caption, color: t.accent, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', wordBreak: 'break-all' }}>
+                                            <Icon name="linkExternal" size={16} />
+                                            {item.url}
+                                        </a>
                                     ) : (
-                                        <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>Ссылка не указана</p>
+                                        <p style={{ margin: 0, ...text.caption, color: t.textTertiary }}>Ссылка не указана</p>
                                     )}
                                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                        <button onClick={() => { setEditingId(item.id); setShowCreate(false); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Изменить</button>
-                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteFooterSocialLink(item.id); setItems((prev) => prev.filter((row) => row.id !== item.id)); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>Удалить</button>
+                                        <button onClick={() => { setEditingId(item.id); setShowCreate(false); }} style={button('secondary', 'sm')}><Icon name="edit" size={16} />Изменить</button>
+                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteFooterSocialLink(item.id); setItems((prev) => prev.filter((row) => row.id !== item.id)); }} style={button('danger', 'sm')}><Icon name="delete" size={16} />Удалить</button>
                                     </div>
                                 </>
                             )}

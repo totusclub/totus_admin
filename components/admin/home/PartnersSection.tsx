@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createHomePartner, deleteHomePartner, getHomePartners, updateHomePartner, type HomePartner } from '@/lib/home-partners-api';
-import { inputStyle, sectionBox, sectionDesc, sectionTitle } from './styles';
+import { badge, button, inputStyle, radius, sectionBox, sectionDesc, sectionTitle, t, text } from '@/lib/theme';
+import Icon from '@/components/Icon';
 
 function PartnerForm({ initial, onSave, onCancel, saving }: { initial?: HomePartner | null; onSave: (values: { name: string; url: string; sort_order: number; image?: File | null }) => Promise<void>; onCancel?: () => void; saving: boolean }) {
     const [name, setName] = useState(initial?.name || '');
@@ -21,8 +22,9 @@ function PartnerForm({ initial, onSave, onCancel, saving }: { initial?: HomePart
 
     return (
         <div style={{ display: 'grid', gap: 10 }}>
-            <div style={{ height: 90, borderRadius: 12, background: preview ? `center/contain no-repeat url(${preview}) rgba(15,23,42,0.6)` : 'rgba(15,23,42,0.6)' }} />
-            <label style={{ color: '#e5e7eb', cursor: 'pointer', width: 'fit-content' }}>
+            <div style={{ height: 90, borderRadius: radius.md, border: `1px solid ${t.border}`, background: preview ? `center/contain no-repeat url(${preview})` : t.surfaceInset }} />
+            <label style={{ ...button('secondary', 'sm'), width: 'fit-content' }}>
+                <Icon name="upload" size={16} />
                 {initial ? 'Заменить логотип' : 'Выбрать логотип'}
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const next = e.target.files?.[0] || null; if (!next) return; setFile(next); setPreview(URL.createObjectURL(next)); }} />
             </label>
@@ -30,8 +32,8 @@ function PartnerForm({ initial, onSave, onCancel, saving }: { initial?: HomePart
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Ссылка" style={inputStyle} />
             <input value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} type="number" placeholder="Порядок" style={inputStyle} />
             <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={async () => { if (!initial && !file) { alert('Загрузите логотип'); return; } await onSave({ name, url, sort_order: Number(sortOrder) || 0, image: file }); setFile(null); if (fileRef.current) fileRef.current.value = ''; }} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff' }}>{saving ? 'Сохранение...' : initial ? 'Сохранить' : 'Добавить'}</button>
-                {onCancel && <button onClick={onCancel} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Отмена</button>}
+                <button onClick={async () => { if (!initial && !file) { alert('Загрузите логотип'); return; } await onSave({ name, url, sort_order: Number(sortOrder) || 0, image: file }); setFile(null); if (fileRef.current) fileRef.current.value = ''; }} disabled={saving} style={{ ...button('primary'), opacity: saving ? 0.6 : 1 }}>{saving ? 'Сохранение...' : initial ? 'Сохранить' : 'Добавить'}</button>
+                {onCancel && <button onClick={onCancel} style={button('secondary')}>Отмена</button>}
             </div>
         </div>
     );
@@ -53,17 +55,21 @@ export default function PartnersSection() {
 
     return (
         <section id="partners" style={sectionBox}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 <div>
                     <h3 style={sectionTitle}>Партнёры</h3>
-                    <p style={{ ...sectionDesc, marginBottom: 0 }}>Логотипы партнёров на главной. Всего: {partners.length}</p>
+                    <p style={{ ...sectionDesc, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        Логотипы партнёров на главной.
+                        <span style={badge('neutral')}>Всего: {partners.length}</span>
+                    </p>
                 </div>
-                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); }} style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: '#FE732E', color: '#fff', cursor: 'pointer' }}>
+                <button onClick={() => { setShowCreate((v) => !v); setEditingId(null); }} style={button('primary', 'sm')}>
+                    {showCreate ? <Icon name="close" size={16} /> : <Icon name="plus" size={16} />}
                     {showCreate ? 'Скрыть' : 'Добавить'}
                 </button>
             </div>
             {showCreate && (
-                <div style={{ marginBottom: 16, padding: 16, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)' }}>
+                <div style={{ marginBottom: 16, padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                     <PartnerForm saving={saving} onCancel={() => setShowCreate(false)} onSave={async (values) => {
                         if (!values.image) return;
                         setSaving(true);
@@ -77,10 +83,10 @@ export default function PartnersSection() {
                     }} />
                 </div>
             )}
-            {loading ? <p style={{ color: '#9ca3af' }}>Загрузка...</p> : (
+            {loading ? <p style={{ ...text.body, color: t.textTertiary }}>Загрузка...</p> : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
                     {partners.map((item) => (
-                        <div key={item.id} style={{ padding: 16, borderRadius: 12, border: '1px solid rgba(55,65,81,0.5)' }}>
+                        <div key={item.id} style={{ padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface }}>
                             {editingId === item.id ? (
                                 <PartnerForm initial={item} saving={saving} onCancel={() => setEditingId(null)} onSave={async (values) => {
                                     setSaving(true);
@@ -94,11 +100,11 @@ export default function PartnersSection() {
                                 }} />
                             ) : (
                                 <>
-                                    <div style={{ height: 70, marginBottom: 10, background: `center/contain no-repeat url(${item.image})` }} />
-                                    <p style={{ margin: '0 0 10px', color: '#f9fafb', fontWeight: 600 }}>{item.name || `Партнёр #${item.id}`}</p>
+                                    <div style={{ height: 70, marginBottom: 12, borderRadius: radius.sm, background: `center/contain no-repeat url(${item.image})` }} />
+                                    <p style={{ margin: '0 0 12px', ...text.cardTitle }}>{item.name || `Партнёр #${item.id}`}</p>
                                     <div style={{ display: 'flex', gap: 8 }}>
-                                        <button onClick={() => { setEditingId(item.id); setShowCreate(false); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#fff' }}>Изменить</button>
-                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteHomePartner(item.id); setPartners((prev) => prev.filter((p) => p.id !== item.id)); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>Удалить</button>
+                                        <button onClick={() => { setEditingId(item.id); setShowCreate(false); }} style={button('secondary', 'sm')}><Icon name="edit" size={16} />Изменить</button>
+                                        <button onClick={async () => { if (!confirm('Удалить?')) return; await deleteHomePartner(item.id); setPartners((prev) => prev.filter((p) => p.id !== item.id)); }} style={button('danger', 'sm')}><Icon name="delete" size={16} />Удалить</button>
                                     </div>
                                 </>
                             )}

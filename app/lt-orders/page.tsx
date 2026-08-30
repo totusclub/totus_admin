@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
+import Icon from '@/components/Icon';
+import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
 import {
     getClientOrders,
     getClientOrder,
@@ -15,15 +17,6 @@ import {
     formatPeriod,
     formatPrice,
 } from '@/lib/orders-api';
-
-const cardStyle: React.CSSProperties = {
-    padding: 24,
-    borderRadius: 24,
-    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
-    border: '1px solid rgba(55,65,81,0.6)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
-    backdropFilter: 'blur(20px)',
-};
 
 const PAGE_LIMIT = 5;
 
@@ -47,8 +40,8 @@ function LtOrdersContent() {
         if (urlToken) return urlToken;
         const all = await getAllOrders();
         for (const order of all) {
-            const t = getOrderAuthToken(order);
-            if (t) return t;
+            const orderToken = getOrderAuthToken(order);
+            if (orderToken) return orderToken;
         }
         return null;
     };
@@ -122,6 +115,9 @@ function LtOrdersContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const prevDisabled = loading || pageNumber === 0;
+    const nextDisabled = loading || orders.length < PAGE_LIMIT;
+
     return (
         <PageShell>
             <AdminNav />
@@ -137,10 +133,10 @@ function LtOrdersContent() {
                     }}
                 >
                     <div>
-                        <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 24, fontWeight: 700, marginBottom: 6 }}>
+                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
                             Заказы Level Travel
                         </h1>
-                        <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
+                        <div style={{ ...text.caption, fontWeight: 500 }}>
                             Заказы напрямую из Level Travel (GET /client/orders)
                         </div>
                     </div>
@@ -148,51 +144,44 @@ function LtOrdersContent() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <button
                                 onClick={() => load(Math.max(0, pageNumber - 1))}
-                                disabled={loading || pageNumber === 0}
+                                disabled={prevDisabled}
                                 style={{
-                                    padding: '8px 14px',
-                                    borderRadius: 999,
-                                    border: '1px solid rgba(55,65,81,0.8)',
-                                    background: 'rgba(15,23,42,0.95)',
-                                    color: pageNumber === 0 ? '#4b5563' : '#e5e7eb',
-                                    cursor: loading || pageNumber === 0 ? 'not-allowed' : 'pointer',
-                                    fontSize: 13,
-                                    fontWeight: 600,
+                                    ...button('secondary', 'sm'),
+                                    borderRadius: radius.pill,
+                                    color: pageNumber === 0 ? t.textDisabled : t.textSecondary,
+                                    cursor: prevDisabled ? 'not-allowed' : 'pointer',
                                 }}
                             >
-                                ← Назад
+                                <Icon name="arrowLeft" size={16} />
+                                Назад
                             </button>
-                            <span style={{ color: '#9ca3af', fontSize: 13 }}>Стр. {pageNumber + 1}</span>
+                            <span style={text.caption}>Стр. {pageNumber + 1}</span>
                             <button
                                 onClick={() => load(pageNumber + 1)}
-                                disabled={loading || orders.length < PAGE_LIMIT}
+                                disabled={nextDisabled}
                                 style={{
-                                    padding: '8px 14px',
-                                    borderRadius: 999,
-                                    border: '1px solid rgba(55,65,81,0.8)',
-                                    background: 'rgba(15,23,42,0.95)',
-                                    color: orders.length < PAGE_LIMIT ? '#4b5563' : '#e5e7eb',
-                                    cursor: loading || orders.length < PAGE_LIMIT ? 'not-allowed' : 'pointer',
-                                    fontSize: 13,
-                                    fontWeight: 600,
+                                    ...button('secondary', 'sm'),
+                                    borderRadius: radius.pill,
+                                    color: orders.length < PAGE_LIMIT ? t.textDisabled : t.textSecondary,
+                                    cursor: nextDisabled ? 'not-allowed' : 'pointer',
                                 }}
                             >
-                                Вперёд →
+                                Вперёд
+                                <Icon name="chevronRight" size={16} />
                             </button>
                             <button
                                 onClick={() => load(pageNumber)}
                                 disabled={loading}
                                 style={{
-                                    padding: '8px 16px',
-                                    borderRadius: 999,
-                                    border: '1px solid rgba(254,115,46,0.5)',
-                                    background: 'rgba(254,115,46,0.12)',
-                                    color: '#FE732E',
+                                    ...button('secondary', 'sm'),
+                                    borderRadius: radius.pill,
+                                    background: t.accentSoft,
+                                    border: `1px solid ${t.accentBorder}`,
+                                    color: t.accent,
                                     cursor: loading ? 'not-allowed' : 'pointer',
-                                    fontSize: 13,
-                                    fontWeight: 700,
                                 }}
                             >
+                                <Icon name="refresh" size={16} />
                                 {loading ? 'Загрузка...' : 'Обновить'}
                             </button>
                         </div>
@@ -208,14 +197,11 @@ function LtOrdersContent() {
                         placeholder="Поиск по номеру заказа..."
                         inputMode="numeric"
                         style={{
+                            ...inputStyle,
                             flex: '1 1 260px',
+                            width: 'auto',
                             minWidth: 200,
-                            padding: '12px 16px',
-                            borderRadius: 12,
-                            border: '1px solid rgba(55,65,81,0.6)',
-                            background: 'rgba(2,6,23,0.6)',
-                            color: '#f9fafb',
-                            fontSize: 14,
+                            background: t.surfaceInset,
                             outline: 'none',
                         }}
                     />
@@ -223,17 +209,12 @@ function LtOrdersContent() {
                         onClick={searchByOrderId}
                         disabled={loading}
                         style={{
-                            padding: '12px 22px',
-                            borderRadius: 12,
-                            border: 'none',
-                            background: loading ? 'rgba(31,41,55,0.8)' : '#FE732E',
-                            color: loading ? '#6b7280' : '#f9fafb',
+                            ...button('primary', 'md'),
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            fontSize: 14,
-                            fontWeight: 700,
-                            boxShadow: loading ? 'none' : '0 12px 32px rgba(254,115,46,0.45)',
+                            opacity: loading ? 0.6 : 1,
                         }}
                     >
+                        <Icon name="search" size={16} />
                         Найти
                     </button>
                     {searchActive && (
@@ -241,34 +222,48 @@ function LtOrdersContent() {
                             onClick={clearSearch}
                             disabled={loading}
                             style={{
-                                padding: '12px 18px',
-                                borderRadius: 12,
-                                border: '1px solid rgba(55,65,81,0.8)',
-                                background: 'rgba(15,23,42,0.95)',
-                                color: '#e5e7eb',
+                                ...button('secondary', 'md'),
                                 cursor: loading ? 'not-allowed' : 'pointer',
-                                fontSize: 14,
-                                fontWeight: 600,
                             }}
                         >
+                            <Icon name="close" size={16} />
                             Сбросить
                         </button>
                     )}
                 </div>
 
-                {error && <div style={{ color: '#ef4444', fontSize: 13, marginTop: 16 }}>{error}</div>}
+                {error && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginTop: 16,
+                            padding: '10px 12px',
+                            borderRadius: radius.sm,
+                            background: t.errorSoft,
+                            border: `1px solid ${t.error}`,
+                            color: t.error,
+                            fontSize: 13,
+                            lineHeight: '18px',
+                        }}
+                    >
+                        <Icon name="info" size={16} />
+                        <span>{error}</span>
+                    </div>
+                )}
             </div>
 
             {loaded && !error && (
                 <div style={cardStyle}>
-                    <div style={{ color: '#f9fafb', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+                    <div style={{ ...text.cardTitle, marginBottom: 16 }}>
                         {searchActive
                             ? `Результат поиска: ${orders.length}`
                             : `Заказов на странице: ${orders.length}`}
                     </div>
 
                     {orders.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
+                        <div style={{ padding: 24, textAlign: 'center', ...text.body, color: t.textTertiary }}>
                             Заказы не найдены
                         </div>
                     ) : (
@@ -292,15 +287,15 @@ function LtOrdersContent() {
                                         onClick={() => orderId != null && router.push(`/orders/${orderId}`)}
                                         style={{
                                             padding: '18px 20px',
-                                            borderRadius: 18,
-                                            border: '1px solid rgba(55,65,81,0.6)',
-                                            background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
+                                            borderRadius: radius.md,
+                                            border: `1px solid ${t.border}`,
+                                            background: t.surfaceInset,
                                             cursor: orderId != null ? 'pointer' : 'default',
-                                            transition: 'all 0.2s',
+                                            transition: 'transform 0.2s, box-shadow 0.2s, background 0.2s',
                                         }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.transform = 'translateY(-2px)';
-                                            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.35)';
+                                            e.currentTarget.style.boxShadow = t.shadowRaised;
                                         }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.transform = 'translateY(0)';
@@ -316,34 +311,32 @@ function LtOrdersContent() {
                                                 marginBottom: 8,
                                             }}
                                         >
-                                            <div style={{ color: '#f9fafb', fontSize: 16, fontWeight: 600 }}>
-                                                Тур <span style={{ color: '#9ca3af' }}>№ {orderId}</span>
+                                            <div style={{ ...text.cardTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <Icon name="luggage" size={18} style={{ color: t.accent }} />
+                                                Тур <span style={{ color: t.textTertiary }}>№ {orderId}</span>
                                             </div>
-                                            <span
-                                                style={{
-                                                    padding: '4px 12px',
-                                                    borderRadius: 999,
-                                                    fontSize: 12,
-                                                    fontWeight: 600,
-                                                    color: '#fff',
-                                                    background: '#FE732E',
-                                                    whiteSpace: 'nowrap',
-                                                }}
-                                            >
+                                            <span style={{ ...badge('accent'), whiteSpace: 'nowrap' }}>
                                                 {statusLabel}
                                             </span>
                                         </div>
                                         {price && (
-                                            <div style={{ color: '#f9fafb', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                                            <div
+                                                style={{
+                                                    ...text.body,
+                                                    color: t.textPrimary,
+                                                    fontWeight: 600,
+                                                    marginBottom: 6,
+                                                }}
+                                            >
                                                 {price}
                                             </div>
                                         )}
                                         {(hotelName || location) && (
-                                            <div style={{ color: '#e5e7eb', fontSize: 14, marginBottom: 4 }}>
+                                            <div style={{ ...text.body, marginBottom: 4 }}>
                                                 {[hotelName, location].filter(Boolean).join(', ')}
                                             </div>
                                         )}
-                                        {period && <div style={{ color: '#9ca3af', fontSize: 13 }}>{period}</div>}
+                                        {period && <div style={text.caption}>{period}</div>}
                                     </div>
                                 );
                             })}
@@ -357,7 +350,7 @@ function LtOrdersContent() {
 
 export default function LtOrdersPage() {
     return (
-        <Suspense fallback={<PageShell><div style={{ color: '#9ca3af', padding: 24 }}>Загрузка...</div></PageShell>}>
+        <Suspense fallback={<PageShell><div style={{ ...text.body, padding: 24 }}>Загрузка...</div></PageShell>}>
             <LtOrdersContent />
         </Suspense>
     );

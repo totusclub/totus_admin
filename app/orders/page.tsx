@@ -4,6 +4,8 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
+import Icon from '@/components/Icon';
+import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
 import {
     getAllOrders,
     getUserOrders,
@@ -11,7 +13,6 @@ import {
     getOrderId,
     getOrderPrice,
     getStatusLabel,
-    getStatusColor,
     formatOrderDate,
     formatPeriod,
     collectTourists,
@@ -20,14 +21,21 @@ import {
 } from '@/lib/orders-api';
 import { getUserById, getUserDisplayName, type User } from '@/lib/users-api';
 
-const cardStyle: React.CSSProperties = {
-    padding: 24,
-    borderRadius: 24,
-    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
-    border: '1px solid rgba(55,65,81,0.6)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
-    backdropFilter: 'blur(20px)',
-};
+type StatusTone = 'success' | 'info' | 'warning' | 'error' | 'neutral';
+
+/**
+ * Тон плашки статуса для дизайн-системы: цвет приходит из badge(), а значение —
+ * из состояния заказа. Оплачен/завершён — success, в работе — info,
+ * ожидает оплаты — warning, отменён — error, остальное — neutral.
+ */
+function statusTone(status: string, awaitingPayment = false): StatusTone {
+    const s = String(status || '').toLowerCase();
+    if (/cancel|отмен|fail|reject|ошиб|отклон/.test(s)) return 'error';
+    if (awaitingPayment || /pending|await|ожида|не оплач|unpaid/.test(s)) return 'warning';
+    if (/paid|оплач|complet|reconcil|заверш|approve|подтвер/.test(s)) return 'success';
+    if (/progress|process|в работе|обраб|брон|booking|confirm/.test(s)) return 'info';
+    return 'neutral';
+}
 
 function OrdersContent() {
     const router = useRouter();
@@ -106,78 +114,74 @@ function OrdersContent() {
                     }}
                 >
                     <div>
-                        <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 24, fontWeight: 700, marginBottom: 6 }}>
+                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
                             {filterUser ? `Заказы — ${getUserDisplayName(filterUser)}` : 'Все заказы'}
                         </h1>
-                        <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
+                        <div style={text.caption}>
                             Всего заказов: {orders.length}
                             {filterUser && (
                                 <>
-                                    {' '}· ID: <strong style={{ color: '#FE732E' }}>{filterUser.loyaltyId}</strong>
+                                    {' '}· ID: <strong style={{ color: t.accent }}>{filterUser.loyaltyId}</strong>
                                 </>
                             )}
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                         {userIdParam && (
-                            <button
-                                onClick={() => router.push('/orders')}
-                                style={{
-                                    padding: '10px 18px',
-                                    borderRadius: 999,
-                                    border: '1px solid rgba(55,65,81,0.8)',
-                                    backgroundColor: 'rgba(15,23,42,0.95)',
-                                    color: '#e5e7eb',
-                                    cursor: 'pointer',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                }}
-                            >
-                                ← Все заказы
+                            <button onClick={() => router.push('/orders')} style={button('secondary', 'md')}>
+                                <Icon name="arrowLeft" size={16} />
+                                Все заказы
                             </button>
                         )}
                         <button
                             onClick={load}
                             disabled={loading}
                             style={{
-                                padding: '10px 18px',
-                                borderRadius: 999,
-                                border: '1px solid rgba(55,65,81,0.8)',
-                                backgroundColor: 'rgba(15,23,42,0.95)',
-                                color: '#e5e7eb',
+                                ...button('secondary', 'md'),
                                 cursor: loading ? 'not-allowed' : 'pointer',
-                                fontSize: 13,
-                                fontWeight: 600,
+                                opacity: loading ? 0.6 : 1,
                             }}
                         >
+                            <Icon name="refresh" size={16} />
                             {loading ? 'Обновление...' : 'Обновить'}
                         </button>
                     </div>
                 </div>
 
-                <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Поиск по № заказа, отелю, клиенту..."
+                <div
                     style={{
-                        width: '100%',
-                        padding: '14px 18px',
-                        borderRadius: 14,
-                        border: '1px solid rgba(55,65,81,0.6)',
-                        background: 'rgba(2,6,23,0.6)',
-                        color: '#f9fafb',
-                        fontSize: 14,
+                        ...inputStyle,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
                         marginBottom: 20,
-                        outline: 'none',
+                        color: t.textTertiary,
                     }}
-                />
+                >
+                    <Icon name="search" size={18} />
+                    <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Поиск по № заказа, отелю, клиенту..."
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            border: 'none',
+                            outline: 'none',
+                            background: 'transparent',
+                            color: t.textPrimary,
+                            fontSize: 14,
+                            fontFamily: 'inherit',
+                        }}
+                    />
+                </div>
 
                 {loading && orders.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
+                    <div style={{ ...text.body, color: t.textTertiary, padding: 24, textAlign: 'center' }}>
                         Загрузка заказов...
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
+                    <div style={{ ...text.body, color: t.textTertiary, padding: 24, textAlign: 'center' }}>
                         Заказы не найдены
                     </div>
                 ) : (
@@ -185,15 +189,18 @@ function OrdersContent() {
                         {filtered.map((order) => {
                             const pkg = getPackageData(order);
                             const orderId = getOrderId(order);
-                            const statusColor = getStatusColor(pkg, order);
                             const statusLabel = getStatusLabel(order);
+                            const awaiting = isOrderAwaitingPayment(order);
+                            const tone = statusTone(
+                                [pkg?.state, (order as any)?.state, statusLabel].filter(Boolean).join(' '),
+                                awaiting
+                            );
                             const hotelName = pkg?.hotel?.name || '';
                             const location = pkg?.hotel
                                 ? [pkg.hotel.city, pkg.hotel.country].filter(Boolean).join(', ')
                                 : '';
                             const period = formatPeriod(pkg);
                             const tourists = collectTourists(order, pkg);
-                            const awaiting = isOrderAwaitingPayment(order);
 
                             return (
                                 <div
@@ -201,20 +208,19 @@ function OrdersContent() {
                                     onClick={() => router.push(`/orders/${orderId}`)}
                                     style={{
                                         padding: '18px 20px',
-                                        borderRadius: 18,
-                                        border: '1px solid rgba(55,65,81,0.6)',
-                                        borderBottom: `2px solid ${statusColor}90`,
-                                        background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
+                                        borderRadius: radius.lg,
+                                        border: `1px solid ${t.border}`,
+                                        background: t.surface,
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.15s, border-color 0.15s',
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.35)';
+                                        e.currentTarget.style.background = t.surfaceHover;
+                                        e.currentTarget.style.borderColor = t.borderStrong;
                                     }}
                                     onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
+                                        e.currentTarget.style.background = t.surface;
+                                        e.currentTarget.style.borderColor = t.border;
                                     }}
                                 >
                                     <div
@@ -226,66 +232,45 @@ function OrdersContent() {
                                             marginBottom: 8,
                                         }}
                                     >
-                                        <div style={{ color: '#f9fafb', fontSize: 16, fontWeight: 600 }}>
-                                            Тур <span style={{ color: '#9ca3af' }}>№ {orderId}</span>
+                                        <div style={text.cardTitle}>
+                                            Тур <span style={{ color: t.textTertiary }}>№ {orderId}</span>
                                         </div>
-                                        <span
-                                            style={{
-                                                padding: '4px 12px',
-                                                borderRadius: 999,
-                                                fontSize: 12,
-                                                fontWeight: 600,
-                                                color: '#fff',
-                                                background: statusColor,
-                                                whiteSpace: 'nowrap',
-                                            }}
-                                        >
-                                            {statusLabel}
-                                        </span>
+                                        <span style={{ ...badge(tone), whiteSpace: 'nowrap' }}>{statusLabel}</span>
                                     </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-                                        <span style={{ color: '#f9fafb', fontSize: 15, fontWeight: 700 }}>
+                                        <span style={{ ...text.cardTitle, fontWeight: 700 }}>
                                             {getOrderPrice(order)}
                                         </span>
-                                        {awaiting && (
-                                            <span style={{ fontSize: 12, color: '#FE732E', fontWeight: 600 }}>
-                                                Ожидает оплаты
-                                            </span>
-                                        )}
-                                        <span style={{ color: '#6b7280', fontSize: 13 }}>
+                                        {awaiting && <span style={badge('warning')}>Ожидает оплаты</span>}
+                                        <span style={text.caption}>
                                             От {formatOrderDate((order as any)?.c_date || pkg?.created_at)}
                                         </span>
                                     </div>
 
                                     {(hotelName || location) && (
-                                        <div style={{ color: '#e5e7eb', fontSize: 14, marginBottom: 4 }}>
+                                        <div style={{ ...text.body, marginBottom: 4 }}>
                                             {[hotelName, location].filter(Boolean).join(', ')}
                                         </div>
                                     )}
-                                    {period && (
-                                        <div style={{ color: '#9ca3af', fontSize: 13, marginBottom: 4 }}>{period}</div>
-                                    )}
-                                    {tourists && (
-                                        <div style={{ color: '#9ca3af', fontSize: 13 }}>Туристы: {tourists}</div>
-                                    )}
+                                    {period && <div style={{ ...text.caption, marginBottom: 4 }}>{period}</div>}
+                                    {tourists && <div style={text.caption}>Туристы: {tourists}</div>}
 
                                     {order._user && (
                                         <div
                                             style={{
+                                                ...text.caption,
                                                 marginTop: 10,
                                                 paddingTop: 10,
-                                                borderTop: '1px solid rgba(55,65,81,0.4)',
-                                                fontSize: 12,
-                                                color: '#9ca3af',
+                                                borderTop: `1px solid ${t.border}`,
                                                 display: 'flex',
                                                 gap: 8,
                                                 flexWrap: 'wrap',
                                             }}
                                         >
-                                            <span>Клиент: <strong style={{ color: '#e5e7eb' }}>{getUserDisplayName(order._user)}</strong></span>
-                                            <span style={{ opacity: 0.5 }}>•</span>
-                                            <span>ID: <strong style={{ color: '#FE732E' }}>{order._user.loyaltyId}</strong></span>
+                                            <span>Клиент: <strong style={{ color: t.textSecondary }}>{getUserDisplayName(order._user)}</strong></span>
+                                            <span style={{ color: t.textDisabled }}>•</span>
+                                            <span>ID: <strong style={{ color: t.accent }}>{order._user.loyaltyId}</strong></span>
                                         </div>
                                     )}
                                 </div>
@@ -300,7 +285,7 @@ function OrdersContent() {
 
 export default function OrdersPage() {
     return (
-        <Suspense fallback={<PageShell><div style={{ color: '#9ca3af', padding: 24 }}>Загрузка...</div></PageShell>}>
+        <Suspense fallback={<PageShell><div style={{ ...text.body, color: t.textTertiary, padding: 24 }}>Загрузка...</div></PageShell>}>
             <OrdersContent />
         </Suspense>
     );

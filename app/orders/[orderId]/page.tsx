@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
+import Icon from '@/components/Icon';
+import { t, radius, text, cardStyle, sectionTitle, button, badge } from '@/lib/theme';
 import {
     getOrder,
     getOrderDocuments,
@@ -14,7 +16,6 @@ import {
     getOrderId,
     getOrderPrice,
     getStatusLabel,
-    getStatusColor,
     formatOrderDate,
     formatPeriod,
     formatPrice,
@@ -23,23 +24,21 @@ import {
 } from '@/lib/orders-api';
 import { getUserById, getUserDisplayName, type User } from '@/lib/users-api';
 
-const cardStyle: React.CSSProperties = {
-    padding: 24,
-    borderRadius: 24,
-    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
-    border: '1px solid rgba(55,65,81,0.6)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
-    backdropFilter: 'blur(20px)',
-};
+type StatusTone = 'success' | 'info' | 'warning' | 'error' | 'neutral';
 
-const sectionTitle: React.CSSProperties = {
-    color: '#9ca3af',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: 600,
-    marginBottom: 8,
-};
+/**
+ * Тон плашки статуса для дизайн-системы: цвет приходит из badge(), а значение —
+ * из состояния заказа. Оплачен/завершён — success, в работе — info,
+ * ожидает оплаты — warning, отменён — error, остальное — neutral.
+ */
+function statusTone(status: string, awaitingPayment = false): StatusTone {
+    const s = String(status || '').toLowerCase();
+    if (/cancel|отмен|fail|reject|ошиб|отклон/.test(s)) return 'error';
+    if (awaitingPayment || /pending|await|ожида|не оплач|unpaid/.test(s)) return 'warning';
+    if (/paid|оплач|complet|reconcil|заверш|approve|подтвер/.test(s)) return 'success';
+    if (/progress|process|в работе|обраб|брон|booking|confirm/.test(s)) return 'info';
+    return 'neutral';
+}
 
 type Doc = { name?: string; url: string };
 
@@ -101,11 +100,11 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
                 justifyContent: 'space-between',
                 gap: 16,
                 padding: '12px 0',
-                borderBottom: '1px solid rgba(55,65,81,0.4)',
+                borderBottom: `1px solid ${t.border}`,
             }}
         >
-            <span style={{ color: '#9ca3af', fontSize: 14 }}>{label}</span>
-            <span style={{ color: '#f9fafb', fontSize: 14, fontWeight: 500, textAlign: 'right' }}>{renderValue(value)}</span>
+            <span style={{ ...text.body, color: t.textTertiary }}>{label}</span>
+            <span style={{ ...text.body, color: t.textPrimary, fontWeight: 500, textAlign: 'right' }}>{renderValue(value)}</span>
         </div>
     );
 }
@@ -193,13 +192,16 @@ export default function OrderDetailPage() {
     const ltPkg = ltOrder ? (ltOrder.package || ltOrder) : null;
     const pkg = ltPkg || getPackageData(order || undefined);
     const lt = ltOrder || (order as any)?.package || {};
-    const statusColor = order ? getStatusColor(pkg, order) : '#FE732E';
     const statusLabel = (ltOrder && (ltOrder.status_for_client || ltOrder.state)) || getStatusLabel(order || undefined);
     const hotelName = pkg?.hotel?.name || '';
     const destination = [pkg?.hotel?.city, pkg?.hotel?.country].filter(Boolean).join(', ');
     const tourists: any[] = pkg?.tourists || lt?.tourists || ltOrder?.tourists || [];
     const client = lt?.client || pkg?.client || ltOrder?.client;
     const awaiting = order ? isOrderAwaitingPayment(order) : false;
+    const statusBadgeTone = statusTone(
+        [pkg?.state, (order as any)?.state, statusLabel].filter(Boolean).join(' '),
+        awaiting
+    );
     const ltPrice = ltOrder
         ? formatPrice(ltOrder.full_price ?? ltOrder.price ?? ltPkg?.price ?? ltPkg?.full_price)
         : null;
@@ -208,29 +210,17 @@ export default function OrderDetailPage() {
         <PageShell>
             <AdminNav />
 
-            <button
-                onClick={() => router.back()}
-                style={{
-                    width: 'fit-content',
-                    padding: '10px 18px',
-                    borderRadius: 999,
-                    border: '1px solid rgba(55,65,81,0.8)',
-                    backgroundColor: 'rgba(15,23,42,0.95)',
-                    color: '#e5e7eb',
-                    cursor: 'pointer',
-                    fontSize: 13,
-                    fontWeight: 600,
-                }}
-            >
-                ← Назад
+            <button onClick={() => router.back()} style={{ ...button('secondary', 'md'), width: 'fit-content' }}>
+                <Icon name="arrowLeft" size={16} />
+                Назад
             </button>
 
             {loading ? (
-                <div style={{ ...cardStyle, color: '#9ca3af', textAlign: 'center' }}>Загрузка заказа...</div>
+                <div style={{ ...cardStyle, ...text.body, color: t.textTertiary, textAlign: 'center' }}>Загрузка заказа...</div>
             ) : error ? (
-                <div style={{ ...cardStyle, color: '#ef4444', textAlign: 'center' }}>{error}</div>
+                <div style={{ ...cardStyle, ...text.body, color: t.error, textAlign: 'center' }}>{error}</div>
             ) : !order ? (
-                <div style={{ ...cardStyle, color: '#9ca3af', textAlign: 'center' }}>Заказ не найден</div>
+                <div style={{ ...cardStyle, ...text.body, color: t.textTertiary, textAlign: 'center' }}>Заказ не найден</div>
             ) : (
                 <>
                     {/* Header / summary */}
@@ -245,32 +235,21 @@ export default function OrderDetailPage() {
                                 marginBottom: 16,
                             }}
                         >
-                            <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 24, fontWeight: 700 }}>
+                            <h1 style={{ ...text.pageTitle, margin: 0 }}>
                                 Тур № {getOrderId(order)}
                             </h1>
-                            <span
-                                style={{
-                                    padding: '6px 16px',
-                                    borderRadius: 999,
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    color: '#fff',
-                                    background: statusColor,
-                                }}
-                            >
-                                {statusLabel}
-                            </span>
+                            <span style={{ ...badge(statusBadgeTone), whiteSpace: 'nowrap' }}>{statusLabel}</span>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ color: '#f9fafb', fontSize: 28, fontWeight: 700 }}>{getOrderPrice(order)}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={text.sectionTitle}>{getOrderPrice(order)}</div>
                             {awaiting ? (
-                                <span style={{ color: '#FE732E', fontSize: 14, fontWeight: 600 }}>Ожидает оплаты</span>
+                                <span style={badge('warning')}>Ожидает оплаты</span>
                             ) : (
-                                <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 600 }}>Оплачено</span>
+                                <span style={badge('success')}>Оплачено</span>
                             )}
                         </div>
-                        <div style={{ color: '#6b7280', fontSize: 13, marginTop: 6 }}>
+                        <div style={{ ...text.caption, marginTop: 6 }}>
                             Создан: {formatOrderDate((order as any)?.c_date || pkg?.created_at)}
                             {(order as any)?.pay_status ? ` · pay_status: ${(order as any).pay_status}` : ''}
                         </div>
@@ -290,7 +269,7 @@ export default function OrderDetailPage() {
                         >
                             <div>
                                 <div style={{ ...sectionTitle, marginBottom: 4 }}>Данные Level Travel</div>
-                                <div style={{ fontSize: 13, color: '#6b7280' }}>
+                                <div style={text.caption}>
                                     {ltLoading
                                         ? 'Загрузка из Level Travel...'
                                         : ltOrder
@@ -304,43 +283,29 @@ export default function OrderDetailPage() {
                                         onClick={() =>
                                             router.push(`/lt-orders?token=${encodeURIComponent(getOrderAuthToken(order) || '')}`)
                                         }
-                                        style={{
-                                            padding: '10px 18px',
-                                            borderRadius: 999,
-                                            border: '1px solid rgba(55,65,81,0.8)',
-                                            background: 'rgba(15,23,42,0.95)',
-                                            color: '#e5e7eb',
-                                            cursor: 'pointer',
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            whiteSpace: 'nowrap',
-                                        }}
+                                        style={button('secondary', 'md')}
                                     >
-                                        Все заказы клиента в LT →
+                                        Все заказы клиента в LT
+                                        <Icon name="chevronRight" size={16} />
                                     </button>
                                 )}
                                 <button
                                     onClick={() => loadLevelTravel(order)}
                                     disabled={ltLoading}
                                     style={{
-                                        padding: '10px 18px',
-                                        borderRadius: 999,
-                                        border: '1px solid rgba(254,115,46,0.5)',
-                                        background: 'rgba(254,115,46,0.12)',
-                                        color: '#FE732E',
+                                        ...button('primary', 'md'),
                                         cursor: ltLoading ? 'not-allowed' : 'pointer',
-                                        fontSize: 13,
-                                        fontWeight: 700,
-                                        whiteSpace: 'nowrap',
+                                        opacity: ltLoading ? 0.6 : 1,
                                     }}
                                 >
+                                    <Icon name="refresh" size={16} />
                                     {ltLoading ? 'Загрузка...' : ltOrder ? 'Обновить из LT' : 'Загрузить из LT'}
                                 </button>
                             </div>
                         </div>
 
                         {ltError && !ltOrder && (
-                            <div style={{ color: '#ef4444', fontSize: 13, marginTop: 12 }}>{ltError}</div>
+                            <div style={{ ...text.body, color: t.error, marginTop: 12 }}>{ltError}</div>
                         )}
 
                         {ltOrder && (
@@ -360,31 +325,21 @@ export default function OrderDetailPage() {
 
                                 <button
                                     onClick={() => setShowRaw((v) => !v)}
-                                    style={{
-                                        marginTop: 14,
-                                        padding: '8px 14px',
-                                        borderRadius: 999,
-                                        border: '1px solid rgba(55,65,81,0.8)',
-                                        background: 'rgba(15,23,42,0.95)',
-                                        color: '#e5e7eb',
-                                        cursor: 'pointer',
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                    }}
+                                    style={{ ...button('tertiary', 'sm'), marginTop: 14 }}
                                 >
+                                    <Icon name="eye" size={16} />
                                     {showRaw ? 'Скрыть полный JSON' : 'Показать полный JSON'}
                                 </button>
                                 {showRaw && (
                                     <pre
                                         style={{
+                                            ...text.mono,
                                             marginTop: 12,
                                             padding: 16,
-                                            borderRadius: 14,
-                                            background: 'rgba(2,6,23,0.85)',
-                                            border: '1px solid rgba(55,65,81,0.4)',
-                                            color: '#cbd5e1',
-                                            fontSize: 12,
-                                            lineHeight: 1.5,
+                                            borderRadius: radius.md,
+                                            background: t.surfaceInset,
+                                            border: `1px solid ${t.border}`,
+                                            color: t.textSecondary,
                                             maxHeight: 400,
                                             overflow: 'auto',
                                             whiteSpace: 'pre-wrap',
@@ -420,17 +375,10 @@ export default function OrderDetailPage() {
                                     value={
                                         <button
                                             onClick={() => router.push(`/orders?userId=${owner.id}`)}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                color: '#FE732E',
-                                                cursor: 'pointer',
-                                                fontSize: 14,
-                                                fontWeight: 600,
-                                                padding: 0,
-                                            }}
+                                            style={{ ...button('tertiary', 'sm'), color: t.accent, padding: 0 }}
                                         >
-                                            {getUserDisplayName(owner)} (ID {owner.loyaltyId}) →
+                                            {getUserDisplayName(owner)} (ID {owner.loyaltyId})
+                                            <Icon name="chevronRight" size={16} />
                                         </button>
                                     }
                                 />
@@ -450,23 +398,23 @@ export default function OrderDetailPage() {
                         <div style={cardStyle}>
                             <div style={sectionTitle}>Туристы ({tourists.length})</div>
                             <div style={{ display: 'grid', gap: 10 }}>
-                                {tourists.map((t, idx) => (
+                                {tourists.map((tourist, idx) => (
                                     <div
-                                        key={t?.id ?? idx}
+                                        key={tourist?.id ?? idx}
                                         style={{
                                             padding: '12px 14px',
-                                            borderRadius: 14,
-                                            background: 'rgba(2,6,23,0.6)',
-                                            border: '1px solid rgba(55,65,81,0.4)',
+                                            borderRadius: radius.md,
+                                            background: t.surfaceInset,
+                                            border: `1px solid ${t.border}`,
                                         }}
                                     >
-                                        <div style={{ color: '#f9fafb', fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-                                            {[t?.surname, t?.name].filter(Boolean).join(' ') || `Турист ${idx + 1}`}
+                                        <div style={{ ...text.body, color: t.textPrimary, fontWeight: 600, marginBottom: 4 }}>
+                                            {[tourist?.surname, tourist?.name].filter(Boolean).join(' ') || `Турист ${idx + 1}`}
                                         </div>
-                                        <div style={{ color: '#9ca3af', fontSize: 13, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                            {t?.birthday && <span>Дата рожд.: {t.birthday}</span>}
-                                            {t?.passport && <span>Паспорт: {t.passport}</span>}
-                                            {t?.passport_expires_on && <span>Действ. до: {t.passport_expires_on}</span>}
+                                        <div style={{ ...text.caption, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                            {tourist?.birthday && <span>Дата рожд.: {tourist.birthday}</span>}
+                                            {tourist?.passport && <span>Паспорт: {tourist.passport}</span>}
+                                            {tourist?.passport_expires_on && <span>Действ. до: {tourist.passport_expires_on}</span>}
                                         </div>
                                     </div>
                                 ))}
@@ -486,19 +434,19 @@ export default function OrderDetailPage() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{
+                                            ...text.body,
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 10,
                                             padding: '12px 14px',
-                                            borderRadius: 14,
-                                            background: 'rgba(2,6,23,0.6)',
-                                            border: '1px solid rgba(55,65,81,0.4)',
-                                            color: '#e5e7eb',
+                                            borderRadius: radius.md,
+                                            background: t.surfaceInset,
+                                            border: `1px solid ${t.border}`,
+                                            color: t.textSecondary,
                                             textDecoration: 'none',
-                                            fontSize: 14,
                                         }}
                                     >
-                                        <span style={{ fontSize: 18 }}>📄</span>
+                                        <Icon name="file" size={18} />
                                         {doc.name || `Документ ${idx + 1}`}
                                     </a>
                                 ))}

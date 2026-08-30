@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import RichTextEditor from '@/components/RichTextEditor';
+import Icon from '@/components/Icon';
 import {
     FOOTER_PAGE_BY_SLUG,
     PUBLIC_SITE_URL,
@@ -16,33 +17,29 @@ import {
     saveCmsPage,
     type SaveCmsPageInput,
 } from '@/lib/pages-api';
-
-const cardStyle: React.CSSProperties = {
-    padding: 24,
-    borderRadius: 24,
-    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
-    border: '1px solid rgba(55,65,81,0.6)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
-    backdropFilter: 'blur(20px)',
-};
+import {
+    t,
+    text,
+    cardStyle,
+    inputStyle,
+    textareaStyle,
+    sectionBox,
+    sectionTitle,
+    button,
+    badge,
+} from '@/lib/theme';
 
 const fieldLabel: React.CSSProperties = {
     display: 'block',
     marginBottom: 8,
-    color: '#d1d5db',
-    fontSize: 13,
+    ...text.caption,
+    color: t.textSecondary,
     fontWeight: 600,
 };
 
 const fieldInput: React.CSSProperties = {
-    width: '100%',
-    padding: '12px 14px',
-    borderRadius: 12,
-    border: '1px solid rgba(75,85,99,0.55)',
-    background: '#020617',
-    backgroundColor: '#020617',
-    color: '#f9fafb',
-    fontSize: 14,
+    ...inputStyle,
+    background: t.surfaceInset,
     outline: 'none',
     WebkitAppearance: 'none',
     appearance: 'none',
@@ -146,20 +143,13 @@ export default function CmsPageEditorPage() {
             <PageShell>
                 <AdminNav />
                 <div style={cardStyle}>
-                    <h1 style={{ color: '#f9fafb' }}>Страница не найдена</h1>
+                    <h1 style={{ margin: 0, ...text.pageTitle }}>Страница не найдена</h1>
                     <button
                         type="button"
                         onClick={() => router.push('/pages')}
-                        style={{
-                            marginTop: 12,
-                            padding: '10px 14px',
-                            borderRadius: 12,
-                            border: 'none',
-                            background: '#FE732E',
-                            color: '#fff',
-                            cursor: 'pointer',
-                        }}
+                        style={{ ...button('primary'), marginTop: 16 }}
                     >
+                        <Icon name="arrowLeft" size={16} />
                         Назад к списку
                     </button>
                 </div>
@@ -186,21 +176,13 @@ export default function CmsPageEditorPage() {
                         <button
                             type="button"
                             onClick={() => router.push('/pages')}
-                            style={{
-                                border: 'none',
-                                background: 'transparent',
-                                color: '#9ca3af',
-                                cursor: 'pointer',
-                                padding: 0,
-                                marginBottom: 8,
-                            }}
+                            style={{ ...button('tertiary', 'sm'), padding: 0, marginBottom: 8 }}
                         >
-                            ← Все страницы
+                            <Icon name="arrowLeft" size={16} />
+                            Все страницы
                         </button>
-                        <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 28, fontWeight: 700 }}>
-                            {catalog.title}
-                        </h1>
-                        <p style={{ margin: '8px 0 0', color: '#9ca3af', fontSize: 14 }}>
+                        <h1 style={{ margin: 0, ...text.pageTitle }}>{catalog.title}</h1>
+                        <p style={{ margin: '8px 0 0', ...text.body, color: t.textTertiary }}>
                             /{slug} · {sectionLabel}
                         </p>
                     </div>
@@ -210,17 +192,9 @@ export default function CmsPageEditorPage() {
                             href={`${PUBLIC_SITE_URL}${catalog.publicPath}`}
                             target="_blank"
                             rel="noreferrer"
-                            style={{
-                                padding: '10px 14px',
-                                borderRadius: 12,
-                                border: '1px solid rgba(75,85,99,0.55)',
-                                color: '#e5e7eb',
-                                textDecoration: 'none',
-                                fontWeight: 600,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                            }}
+                            style={{ ...button('secondary'), textDecoration: 'none' }}
                         >
+                            <Icon name="linkExternal" size={16} />
                             Открыть на сайте
                         </a>
                         <button
@@ -228,33 +202,20 @@ export default function CmsPageEditorPage() {
                             onClick={handleSave}
                             disabled={saving || loading}
                             style={{
-                                padding: '10px 18px',
-                                borderRadius: 12,
-                                border: 'none',
-                                background: saving ? '#9a3412' : '#FE732E',
-                                color: '#fff',
+                                ...button('primary'),
+                                opacity: saving || loading ? 0.6 : 1,
                                 cursor: saving || loading ? 'wait' : 'pointer',
-                                fontWeight: 700,
                             }}
                         >
+                            <Icon name="check" size={16} />
                             {saving ? 'Сохранение...' : 'Сохранить'}
                         </button>
                     </div>
                 </div>
 
                 {savedAt ? (
-                    <div
-                        style={{
-                            marginBottom: 18,
-                            padding: '10px 14px',
-                            borderRadius: 12,
-                            background: 'rgba(34,197,94,0.12)',
-                            border: '1px solid rgba(34,197,94,0.35)',
-                            color: '#86efac',
-                            fontSize: 13,
-                            fontWeight: 600,
-                        }}
-                    >
+                    <div style={{ ...badge('success'), marginBottom: 18 }}>
+                        <Icon name="check" size={14} />
                         Сохранено в {savedAt}
                     </div>
                 ) : null}
@@ -309,17 +270,8 @@ export default function CmsPageEditorPage() {
                         </div>
                     </div>
 
-                    <div
-                        style={{
-                            padding: 16,
-                            borderRadius: 16,
-                            border: '1px solid rgba(55,65,81,0.45)',
-                            background: 'rgba(15,23,42,0.35)',
-                        }}
-                    >
-                        <h3 style={{ margin: '0 0 12px', color: '#e5e7eb', fontSize: 15 }}>
-                            SEO настройки
-                        </h3>
+                    <div style={{ ...sectionBox, marginBottom: 0 }}>
+                        <h3 style={{ ...sectionTitle, marginBottom: 16 }}>SEO настройки</h3>
                         <div style={{ display: 'grid', gap: 12 }}>
                             <div>
                                 <label style={fieldLabel}>SEO заголовок</label>
@@ -332,7 +284,11 @@ export default function CmsPageEditorPage() {
                             <div>
                                 <label style={fieldLabel}>SEO описание</label>
                                 <textarea
-                                    style={{ ...fieldInput, minHeight: 80, resize: 'vertical' }}
+                                    style={{
+                                        ...textareaStyle,
+                                        background: t.surfaceInset,
+                                        outline: 'none',
+                                    }}
                                     value={form.seo_desc}
                                     onChange={(e) => updateField('seo_desc', e.target.value)}
                                 />

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
+import Icon, { type IconName } from '@/components/Icon';
+import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
 import {
     getStaffAuth,
     staffSignIn,
@@ -20,31 +22,14 @@ import {
 const PAGE_LIMIT = 100;
 const REFRESH_INTERVAL_MS = 60_000;
 
-const cardStyle: React.CSSProperties = {
-    padding: 24,
-    borderRadius: 24,
-    background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
-    border: '1px solid rgba(55,65,81,0.6)',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,23,42,0.8)',
-    backdropFilter: 'blur(20px)',
-};
+type BadgeTone = NonNullable<Parameters<typeof badge>[0]>;
+type ButtonKind = NonNullable<Parameters<typeof button>[0]>;
 
-const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    border: '1px solid rgba(75,85,99,0.9)',
-    backgroundColor: 'rgba(15,23,42,0.95)',
-    color: '#e5e7eb',
-    fontSize: 14,
-    outline: 'none',
-};
-
-const STATUS_META: Record<OrderRequestStatus, { label: string; color: string; bg: string; border: string }> = {
-    new: { label: 'Новое', color: '#FE732E', bg: 'rgba(254,115,46,0.14)', border: 'rgba(254,115,46,0.5)' },
-    in_progress: { label: 'В работе', color: '#7dd3fc', bg: 'rgba(56,189,248,0.14)', border: 'rgba(56,189,248,0.5)' },
-    done: { label: 'Выполнено', color: '#bbf7d0', bg: 'rgba(34,197,94,0.14)', border: 'rgba(34,197,94,0.5)' },
-    rejected: { label: 'Отклонено', color: '#fecaca', bg: 'rgba(239,68,68,0.14)', border: 'rgba(239,68,68,0.5)' },
+const STATUS_META: Record<OrderRequestStatus, { label: string; tone: BadgeTone }> = {
+    new: { label: 'Новое', tone: 'accent' },
+    in_progress: { label: 'В работе', tone: 'info' },
+    done: { label: 'Выполнено', tone: 'success' },
+    rejected: { label: 'Отклонено', tone: 'error' },
 };
 
 const FILTERS: { value: OrderRequestStatus | ''; label: string }[] = [
@@ -57,15 +42,15 @@ const FILTERS: { value: OrderRequestStatus | ''; label: string }[] = [
 
 // Разумные переходы статусов: из «Новое» — в работу/выполнено/отклонено,
 // из «В работе» — только выполнено/отклонено, финальные статусы не меняем.
-const NEXT_ACTIONS: Record<OrderRequestStatus, { status: OrderRequestStatus; label: string; color: string; border: string; bg: string }[]> = {
+const NEXT_ACTIONS: Record<OrderRequestStatus, { status: OrderRequestStatus; label: string; kind: ButtonKind; icon: IconName }[]> = {
     new: [
-        { status: 'in_progress', label: 'В работу', color: '#7dd3fc', border: 'rgba(56,189,248,0.5)', bg: 'rgba(56,189,248,0.12)' },
-        { status: 'done', label: 'Выполнено', color: '#bbf7d0', border: 'rgba(34,197,94,0.5)', bg: 'rgba(34,197,94,0.12)' },
-        { status: 'rejected', label: 'Отклонить', color: '#fecaca', border: 'rgba(239,68,68,0.5)', bg: 'rgba(239,68,68,0.12)' },
+        { status: 'in_progress', label: 'В работу', kind: 'secondary', icon: 'refresh' },
+        { status: 'done', label: 'Выполнено', kind: 'primary', icon: 'check' },
+        { status: 'rejected', label: 'Отклонить', kind: 'danger', icon: 'close' },
     ],
     in_progress: [
-        { status: 'done', label: 'Выполнено', color: '#bbf7d0', border: 'rgba(34,197,94,0.5)', bg: 'rgba(34,197,94,0.12)' },
-        { status: 'rejected', label: 'Отклонить', color: '#fecaca', border: 'rgba(239,68,68,0.5)', bg: 'rgba(239,68,68,0.12)' },
+        { status: 'done', label: 'Выполнено', kind: 'primary', icon: 'check' },
+        { status: 'rejected', label: 'Отклонить', kind: 'danger', icon: 'close' },
     ],
     done: [],
     rejected: [],
@@ -189,6 +174,14 @@ export default function OrderRequestsPage() {
         }
     };
 
+    const labelStyle: React.CSSProperties = {
+        display: 'block',
+        marginBottom: 6,
+        ...text.caption,
+        color: t.textSecondary,
+        fontWeight: 500,
+    };
+
     if (!authChecked) {
         return (
             <PageShell>
@@ -202,49 +195,66 @@ export default function OrderRequestsPage() {
             <PageShell>
                 <AdminNav />
                 <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
-                    <div
-                        style={{
-                            width: '100%',
-                            maxWidth: 380,
-                            borderRadius: 24,
-                            padding: '28px 24px 22px',
-                            background: 'linear-gradient(145deg, rgba(15,23,42,0.96), rgba(17,24,39,0.98))',
-                            border: '1px solid rgba(55,65,81,0.85)',
-                            boxShadow: '0 25px 70px rgba(15,23,42,0.95), 0 0 0 1px rgba(2,6,23,0.9)',
-                        }}
-                    >
-                        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                            <h1 style={{ margin: 0, marginBottom: 6, color: '#f9fafb', fontSize: 20, fontWeight: 700 }}>
-                                Вход для сотрудников
-                            </h1>
-                            <p style={{ margin: 0, color: '#9ca3af', fontSize: 12, lineHeight: 1.5 }}>
-                                Staff-доступ kedam (обращения по заказам).
-                                <br />
-                                Это не логин агента звонков.
-                            </p>
+                    <div style={{ ...cardStyle, width: '100%', maxWidth: 420 }}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                marginBottom: 24,
+                                gap: 12,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    width: 54,
+                                    height: 54,
+                                    borderRadius: radius.pill,
+                                    background: t.accentSoft,
+                                    color: t.accent,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <Icon name="user" size={26} />
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <h1 style={{ ...text.sectionTitle, margin: '0 0 4px' }}>
+                                    Вход для сотрудников
+                                </h1>
+                                <p style={{ ...text.caption, margin: 0 }}>
+                                    Staff-доступ kedam (обращения по заказам).
+                                    <br />
+                                    Это не логин агента звонков.
+                                </p>
+                            </div>
                         </div>
 
                         {loginError && (
                             <div
                                 style={{
-                                    marginBottom: 16,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    marginBottom: 18,
                                     padding: '10px 12px',
-                                    backgroundColor: 'rgba(127,29,29,0.18)',
-                                    border: '1px solid rgba(248,113,113,0.55)',
-                                    borderRadius: 10,
-                                    color: '#fecaca',
+                                    background: t.errorSoft,
+                                    border: `1px solid ${t.error}`,
+                                    borderRadius: radius.sm,
+                                    color: t.error,
                                     fontSize: 13,
+                                    lineHeight: '18px',
                                 }}
                             >
-                                {loginError}
+                                <Icon name="info" size={16} />
+                                <span>{loginError}</span>
                             </div>
                         )}
 
                         <form onSubmit={handleLogin}>
-                            <div style={{ marginBottom: 14 }}>
-                                <label style={{ display: 'block', marginBottom: 6, color: '#e5e7eb', fontSize: 13, fontWeight: 500 }}>
-                                    Email
-                                </label>
+                            <div style={{ marginBottom: 18 }}>
+                                <label style={labelStyle}>Email</label>
                                 <input
                                     type="email"
                                     value={email}
@@ -252,13 +262,11 @@ export default function OrderRequestsPage() {
                                     required
                                     disabled={loginLoading}
                                     placeholder="staff@totus.club"
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, outline: 'none' }}
                                 />
                             </div>
-                            <div style={{ marginBottom: 18 }}>
-                                <label style={{ display: 'block', marginBottom: 6, color: '#e5e7eb', fontSize: 13, fontWeight: 500 }}>
-                                    Пароль
-                                </label>
+                            <div style={{ marginBottom: 22 }}>
+                                <label style={labelStyle}>Пароль</label>
                                 <input
                                     type="password"
                                     value={password}
@@ -266,23 +274,17 @@ export default function OrderRequestsPage() {
                                     required
                                     disabled={loginLoading}
                                     placeholder="Пароль сотрудника"
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, outline: 'none' }}
                                 />
                             </div>
                             <button
                                 type="submit"
                                 disabled={loginLoading}
                                 style={{
+                                    ...button('primary', 'lg'),
                                     width: '100%',
-                                    padding: '11px 14px',
-                                    borderRadius: 999,
-                                    border: 'none',
-                                    background: loginLoading ? '#374151' : 'linear-gradient(135deg, #FE732E, #f97316)',
-                                    color: '#f9fafb',
-                                    fontSize: 14,
-                                    fontWeight: 600,
                                     cursor: loginLoading ? 'not-allowed' : 'pointer',
-                                    boxShadow: loginLoading ? 'none' : '0 16px 40px rgba(248,113,22,0.55)',
+                                    opacity: loginLoading ? 0.6 : 1,
                                 }}
                             >
                                 {loginLoading ? 'Вход...' : 'Войти'}
@@ -310,10 +312,10 @@ export default function OrderRequestsPage() {
                     }}
                 >
                     <div>
-                        <h1 style={{ margin: 0, color: '#f9fafb', fontSize: 24, fontWeight: 700, marginBottom: 6 }}>
+                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
                             Обращения по заказам
                         </h1>
-                        <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
+                        <div style={{ ...text.caption, fontWeight: 500 }}>
                             Всего: {total}
                             {auth.profile?.email ? (
                                 <>
@@ -325,8 +327,8 @@ export default function OrderRequestsPage() {
                                             background: 'none',
                                             border: 'none',
                                             padding: 0,
-                                            color: '#9ca3af',
-                                            fontSize: 13,
+                                            ...text.caption,
+                                            fontFamily: 'inherit',
                                             fontWeight: 500,
                                             cursor: 'pointer',
                                             textDecoration: 'underline',
@@ -342,16 +344,12 @@ export default function OrderRequestsPage() {
                         onClick={() => load()}
                         disabled={loading}
                         style={{
-                            padding: '10px 18px',
-                            borderRadius: 999,
-                            border: '1px solid rgba(55,65,81,0.8)',
-                            backgroundColor: 'rgba(15,23,42,0.95)',
-                            color: '#e5e7eb',
+                            ...button('secondary', 'md'),
+                            borderRadius: radius.pill,
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            fontSize: 13,
-                            fontWeight: 600,
                         }}
                     >
+                        <Icon name="refresh" size={16} />
                         {loading ? 'Обновление...' : 'Обновить'}
                     </button>
                 </div>
@@ -364,15 +362,11 @@ export default function OrderRequestsPage() {
                                 key={f.value || 'all'}
                                 onClick={() => setFilter(f.value)}
                                 style={{
-                                    padding: '8px 16px',
-                                    borderRadius: 999,
-                                    border: active ? '1px solid rgba(254,115,46,0.7)' : '1px solid rgba(55,65,81,0.7)',
-                                    background: active ? 'rgba(254,115,46,0.16)' : 'rgba(15,23,42,0.9)',
-                                    color: active ? '#FE732E' : '#9ca3af',
-                                    cursor: 'pointer',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap',
+                                    ...button('secondary', 'sm'),
+                                    borderRadius: radius.pill,
+                                    background: active ? t.accentSoft : t.surfaceInset,
+                                    border: `1px solid ${active ? t.accentBorder : t.border}`,
+                                    color: active ? t.accent : t.textTertiary,
                                 }}
                             >
                                 {f.label}
@@ -384,21 +378,26 @@ export default function OrderRequestsPage() {
                 {listError && (
                     <div
                         style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
                             marginBottom: 16,
                             padding: '10px 12px',
-                            backgroundColor: 'rgba(127,29,29,0.18)',
-                            border: '1px solid rgba(248,113,113,0.55)',
-                            borderRadius: 10,
-                            color: '#fecaca',
+                            background: t.errorSoft,
+                            border: `1px solid ${t.error}`,
+                            borderRadius: radius.sm,
+                            color: t.error,
                             fontSize: 13,
+                            lineHeight: '18px',
                         }}
                     >
-                        {listError}
+                        <Icon name="info" size={16} />
+                        <span>{listError}</span>
                     </div>
                 )}
 
                 {requests.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
+                    <div style={{ padding: 24, textAlign: 'center', ...text.body, color: t.textTertiary }}>
                         {loading ? 'Загрузка...' : 'Обращений нет'}
                     </div>
                 ) : (
@@ -413,62 +412,49 @@ export default function OrderRequestsPage() {
                                     key={r.id}
                                     style={{
                                         padding: '16px 18px',
-                                        borderRadius: 18,
-                                        border: '1px solid rgba(55,65,81,0.6)',
-                                        background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(2,6,23,0.97))',
+                                        borderRadius: radius.md,
+                                        border: `1px solid ${t.border}`,
+                                        background: t.surfaceInset,
                                         display: 'flex',
                                         flexDirection: 'column',
                                         gap: 10,
                                     }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>
+                                        <span style={{ ...text.caption, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <Icon name="calendar" size={14} />
                                             {formatDate(r.created_at)}
                                         </span>
-                                        <span
-                                            style={{
-                                                padding: '3px 10px',
-                                                borderRadius: 999,
-                                                fontSize: 11,
-                                                fontWeight: 700,
-                                                color: isCancel ? '#fecaca' : '#e5e7eb',
-                                                backgroundColor: isCancel ? 'rgba(239,68,68,0.16)' : 'rgba(55,65,81,0.7)',
-                                                border: `1px solid ${isCancel ? 'rgba(239,68,68,0.55)' : 'rgba(75,85,99,0.9)'}`,
-                                            }}
-                                        >
+                                        <span style={{ ...badge(isCancel ? 'error' : 'neutral'), fontSize: 11, padding: '3px 10px' }}>
+                                            <Icon name={isCancel ? 'close' : 'mail'} size={12} />
                                             {isCancel ? 'Отмена' : 'Сообщение'}
                                         </span>
-                                        <span
-                                            style={{
-                                                padding: '3px 10px',
-                                                borderRadius: 999,
-                                                fontSize: 11,
-                                                fontWeight: 700,
-                                                color: statusMeta.color,
-                                                backgroundColor: statusMeta.bg,
-                                                border: `1px solid ${statusMeta.border}`,
-                                            }}
-                                        >
+                                        <span style={{ ...badge(statusMeta.tone), fontSize: 11, padding: '3px 10px' }}>
                                             {statusMeta.label}
                                         </span>
                                         <Link
                                             href={`/orders/${r.order_id}`}
                                             style={{
                                                 marginLeft: 'auto',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 4,
                                                 fontSize: 13,
-                                                fontWeight: 700,
-                                                color: '#FE732E',
+                                                lineHeight: '18px',
+                                                fontWeight: 600,
+                                                color: t.accent,
                                                 textDecoration: 'none',
                                                 whiteSpace: 'nowrap',
                                             }}
                                         >
-                                            Заказ #{r.order_id} →
+                                            Заказ #{r.order_id}
+                                            <Icon name="chevronRight" size={14} />
                                         </Link>
                                     </div>
 
-                                    <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600 }}>
+                                    <div style={{ ...text.body, color: t.textPrimary, fontWeight: 600 }}>
                                         {clientName(r)}
-                                        <span style={{ color: '#9ca3af', fontWeight: 500 }}>
+                                        <span style={{ color: t.textTertiary, fontWeight: 400 }}>
                                             {r.user_email ? ` · ${r.user_email}` : ''}
                                             {r.user_phone ? ` · ${r.user_phone}` : ''}
                                         </span>
@@ -478,12 +464,12 @@ export default function OrderRequestsPage() {
                                         <div
                                             style={{
                                                 padding: '10px 12px',
-                                                borderRadius: 12,
-                                                background: 'rgba(2,6,23,0.6)',
-                                                border: '1px solid rgba(55,65,81,0.5)',
-                                                color: '#d1d5db',
+                                                borderRadius: radius.md,
+                                                background: t.surface,
+                                                border: `1px solid ${t.border}`,
+                                                ...text.body,
                                                 fontSize: 13,
-                                                lineHeight: 1.5,
+                                                lineHeight: '20px',
                                                 whiteSpace: 'pre-wrap',
                                                 wordBreak: 'break-word',
                                             }}
@@ -500,18 +486,12 @@ export default function OrderRequestsPage() {
                                                     onClick={() => handleStatusChange(r.id, a.status)}
                                                     disabled={busy}
                                                     style={{
-                                                        padding: '8px 16px',
-                                                        borderRadius: 999,
-                                                        border: `1px solid ${a.border}`,
-                                                        background: a.bg,
-                                                        color: a.color,
+                                                        ...button(a.kind, 'sm'),
                                                         cursor: busy ? 'not-allowed' : 'pointer',
-                                                        fontSize: 12,
-                                                        fontWeight: 700,
                                                         opacity: busy ? 0.6 : 1,
-                                                        whiteSpace: 'nowrap',
                                                     }}
                                                 >
+                                                    <Icon name={a.icon} size={14} />
                                                     {a.label}
                                                 </button>
                                             ))}
