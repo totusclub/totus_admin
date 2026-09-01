@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, storeUser, type LoginCredentials } from '@/lib/auth-api';
+import { staffSignIn } from '@/lib/staff-auth-api';
 import PageShell from '@/components/PageShell';
 import Icon from '@/components/Icon';
 import { t, radius, text, cardStyle, inputStyle, button } from '@/lib/theme';
 
+// Единый вход для сотрудников (staff-JWT totus_API). Агентский логин voip
+// в админке больше не используется — см. SECURITY_JWT_PLAN_RU.md, волна 2.
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -20,20 +22,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const credentials: LoginCredentials = { email, password };
-      const response = await login(credentials);
-
-      if (response.ok && response.user) {
-        // Store user data
-        storeUser(response.user);
-
-        // Redirect to the first admin section
-        router.push('/users');
-      } else {
-        setError('Login failed. Please check your credentials.');
-      }
+      await staffSignIn(email.trim(), password);
+      // Redirect to the first admin section
+      router.push('/users');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Не удалось войти. Попробуйте ещё раз.');
     } finally {
       setLoading(false);
     }
@@ -84,7 +77,7 @@ export default function LoginPage() {
             <div style={{ textAlign: 'center' }}>
               <h1 style={{ ...text.pageTitle, margin: '0 0 4px' }}>Totus Admin</h1>
               <p style={{ ...text.caption, margin: 0 }}>
-                Войдите как агент, чтобы управлять платформой
+                Войдите как сотрудник, чтобы управлять платформой
               </p>
             </div>
           </div>
@@ -119,7 +112,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="agent@totus.club"
+                placeholder="staff@totus.club"
                 style={{ ...inputStyle, outline: 'none' }}
               />
             </div>
@@ -132,7 +125,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="Введите пароль агента"
+                placeholder="Введите пароль"
                 style={{ ...inputStyle, outline: 'none' }}
               />
             </div>
@@ -162,8 +155,8 @@ export default function LoginPage() {
               textAlign: 'center',
             }}
           >
-            Только пользователи с ролью <strong>agent</strong> могут войти в
-            систему.
+            Вход только для <strong>сотрудников</strong> Totus. Учётную запись выдаёт
+            администратор.
           </div>
         </div>
       </div>
