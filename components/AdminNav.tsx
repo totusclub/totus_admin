@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Icon, { type IconName } from './Icon';
 import ThemeToggle from './ThemeToggle';
-import { getStoredUser, removeUser, type User } from '@/lib/auth-api';
+import { getStaffAuth, staffLogout, staffDisplayName, type StaffAuth } from '@/lib/staff-auth-api';
+import { removeUser } from '@/lib/auth-api';
 import { layout, radius, t } from '@/lib/theme';
 
 type NavLink = {
@@ -30,10 +31,10 @@ const LINKS: NavLink[] = [
 export default function AdminNav() {
     const pathname = usePathname();
     const router = useRouter();
-    const [user, setUser] = useState<User | null>(null);
+    const [auth, setAuth] = useState<StaffAuth | null>(null);
 
     useEffect(() => {
-        setUser(getStoredUser());
+        setAuth(getStaffAuth());
     }, []);
 
     // Флаг сдвигает контент PageShell вправо. На экране входа навигации нет,
@@ -60,7 +61,8 @@ export default function AdminNav() {
     };
 
     const logout = () => {
-        removeUser();
+        staffLogout();
+        removeUser(); // legacy-сессия агента, если осталась от старых версий
         router.push('/login');
     };
 
@@ -149,10 +151,10 @@ export default function AdminNav() {
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {user?.name || user?.fName || 'Агент'}
+                            {staffDisplayName(auth)}
                         </div>
                         <div style={{ fontSize: 11, color: t.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {user?.email || ''}
+                            {auth?.profile?.email || ''}
                         </div>
                     </div>
                     <button
