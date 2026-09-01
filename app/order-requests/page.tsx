@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon, { type IconName } from '@/components/Icon';
-import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
-import {
-    getStaffAuth,
-    staffSignIn,
-    staffLogout,
-    type StaffAuth,
-} from '@/lib/staff-auth-api';
+import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
+import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import {
     listOrderRequests,
     updateOrderRequestStatus,
@@ -73,15 +69,12 @@ function clientName(r: OrderRequest): string {
     return name || `Пользователь #${r.user_id}`;
 }
 
+// Отдельного входа у страницы больше нет: сессия сотрудника — общая для всей
+// админки (AuthGuard + staffAuth). Если она истекла — уходим на /login.
 export default function OrderRequestsPage() {
+    const router = useRouter();
     const [authChecked, setAuthChecked] = useState(false);
     const [auth, setAuth] = useState<StaffAuth | null>(null);
-
-    // login form
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loginLoading, setLoginLoading] = useState(false);
-    const [loginError, setLoginError] = useState<string | null>(null);
 
     // list
     const [requests, setRequests] = useState<OrderRequest[]>([]);
@@ -96,6 +89,14 @@ export default function OrderRequestsPage() {
         setAuth(getStaffAuth());
         setAuthChecked(true);
     }, []);
+
+    // Нет сессии (или она истекла) — на общий экран входа.
+    useEffect(() => {
+        if (authChecked && !auth) {
+            staffLogout();
+            router.replace('/login');
+        }
+    }, [authChecked, auth, router]);
 
     const load = useCallback(
         async (silent = false) => {
@@ -136,28 +137,6 @@ export default function OrderRequestsPage() {
         return () => clearInterval(timer);
     }, [auth, load]);
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoginError(null);
-        setLoginLoading(true);
-        try {
-            const nextAuth = await staffSignIn(email.trim(), password);
-            setAuth(nextAuth);
-            setPassword('');
-        } catch (err: any) {
-            setLoginError(err?.message || 'Не удалось войти');
-        } finally {
-            setLoginLoading(false);
-        }
-    };
-
-    const handleLogout = () => {
-        staffLogout();
-        setAuth(null);
-        setRequests([]);
-        setTotal(0);
-    };
-
     const handleStatusChange = async (id: number, status: OrderRequestStatus) => {
         setUpdatingId(id);
         try {
@@ -174,124 +153,10 @@ export default function OrderRequestsPage() {
         }
     };
 
-    const labelStyle: React.CSSProperties = {
-        display: 'block',
-        marginBottom: 6,
-        ...text.caption,
-        color: t.textSecondary,
-        fontWeight: 500,
-    };
-
-    if (!authChecked) {
+    if (!authChecked || !auth) {
         return (
             <PageShell>
                 <AdminNav />
-            </PageShell>
-        );
-    }
-
-    if (!auth) {
-        return (
-            <PageShell>
-                <AdminNav />
-                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
-                    <div style={{ ...cardStyle, width: '100%', maxWidth: 420 }}>
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                marginBottom: 24,
-                                gap: 12,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    width: 54,
-                                    height: 54,
-                                    borderRadius: radius.pill,
-                                    background: t.accentSoft,
-                                    color: t.accent,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <Icon name="user" size={26} />
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <h1 style={{ ...text.sectionTitle, margin: '0 0 4px' }}>
-                                    Вход для сотрудников
-                                </h1>
-                                <p style={{ ...text.caption, margin: 0 }}>
-                                    Staff-доступ kedam (обращения по заказам).
-                                    <br />
-                                    Это не логин агента звонков.
-                                </p>
-                            </div>
-                        </div>
-
-                        {loginError && (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    marginBottom: 18,
-                                    padding: '10px 12px',
-                                    background: t.errorSoft,
-                                    border: `1px solid ${t.error}`,
-                                    borderRadius: radius.sm,
-                                    color: t.error,
-                                    fontSize: 13,
-                                    lineHeight: '18px',
-                                }}
-                            >
-                                <Icon name="info" size={16} />
-                                <span>{loginError}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleLogin}>
-                            <div style={{ marginBottom: 18 }}>
-                                <label style={labelStyle}>Email</label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    disabled={loginLoading}
-                                    placeholder="staff@totus.club"
-                                    style={{ ...inputStyle, outline: 'none' }}
-                                />
-                            </div>
-                            <div style={{ marginBottom: 22 }}>
-                                <label style={labelStyle}>Пароль</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    disabled={loginLoading}
-                                    placeholder="Пароль сотрудника"
-                                    style={{ ...inputStyle, outline: 'none' }}
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={loginLoading}
-                                style={{
-                                    ...button('primary', 'lg'),
-                                    width: '100%',
-                                    cursor: loginLoading ? 'not-allowed' : 'pointer',
-                                    opacity: loginLoading ? 0.6 : 1,
-                                }}
-                            >
-                                {loginLoading ? 'Вход...' : 'Войти'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
             </PageShell>
         );
     }
@@ -317,27 +182,6 @@ export default function OrderRequestsPage() {
                         </h1>
                         <div style={{ ...text.caption, fontWeight: 500 }}>
                             Всего: {total}
-                            {auth.profile?.email ? (
-                                <>
-                                    {' '}· Сотрудник: {[auth.profile.name, auth.profile.lastname].filter(Boolean).join(' ') || auth.profile.email}
-                                    {' '}·{' '}
-                                    <button
-                                        onClick={handleLogout}
-                                        style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            padding: 0,
-                                            ...text.caption,
-                                            fontFamily: 'inherit',
-                                            fontWeight: 500,
-                                            cursor: 'pointer',
-                                            textDecoration: 'underline',
-                                        }}
-                                    >
-                                        Выйти
-                                    </button>
-                                </>
-                            ) : null}
                         </div>
                     </div>
                     <button

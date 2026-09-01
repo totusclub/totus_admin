@@ -1,8 +1,8 @@
-// Staff authentication for the kedam_API backend (API_BASE_URL, api.totus.club).
+// Staff authentication for the totus_API backend (API_BASE_URL, api.totus.club).
 //
-// ВАЖНО: это ОТДЕЛЬНЫЙ вход для сотрудников kedam_API (таблица `staff` в базе
-// kedam), он НИКАК не связан с агентским логином звонков (lib/auth-api.ts,
-// voip.totus.club, localStorage-ключ 'webAppUser'). Не смешивать эти сессии.
+// Единый вход в админку (SECURITY_JWT_PLAN_RU.md, волна 2): сотрудники — таблица
+// `staff` в базе kedam. Агентский логин звонков (lib/auth-api.ts, voip) в админке
+// больше не используется — voip принимает staff-токен (тот же JWT_SECRET).
 //
 // Токены (payload содержит scope: 'staff'):
 //   - access JWT живёт 12 часов, refresh — 30 дней;
@@ -33,7 +33,7 @@ export interface StaffAuth {
   profile: StaffProfile;
 }
 
-// Sign in as kedam staff and persist tokens + profile in localStorage.
+// Sign in as staff and persist tokens + profile in localStorage.
 export async function staffSignIn(email: string, password: string): Promise<StaffAuth> {
   const response = await fetch(`${API_BASE_URL}/api/admin/auth/sign-in`, {
     method: 'POST',
@@ -50,6 +50,7 @@ export async function staffSignIn(email: string, password: string): Promise<Staf
       // non-JSON error body — keep the default message
     }
     if (response.status === 401) message = 'Неверный email или пароль';
+    if (response.status === 429) message = 'Слишком много попыток входа, попробуйте через 15 минут';
     throw new Error(message);
   }
 
@@ -72,6 +73,7 @@ export async function staffSignIn(email: string, password: string): Promise<Staf
 // Read the stored staff session (null when absent or malformed).
 export function getStaffAuth(): StaffAuth | null {
   try {
+    if (typeof window === 'undefined') return null;
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
@@ -82,7 +84,20 @@ export function getStaffAuth(): StaffAuth | null {
   }
 }
 
-// Drop the staff session. Agent auth ('webAppUser') is intentionally untouched.
+// Есть ли staff-сессия (для AuthGuard). Срок access не проверяем —
+// его продлит refresh при первом 401.
+export function isStaffAuthenticated(): boolean {
+  return getStaffAuth() !== null;
+}
+
+// Имя сотрудника для шапки/навигации.
+export function staffDisplayName(auth: StaffAuth | null): string {
+  if (!auth) return 'Сотрудник';
+  const name = [auth.profile.name, auth.profile.lastname].filter(Boolean).join(' ').trim();
+  return name || auth.profile.email || 'Сотрудник';
+}
+
+// Drop the staff session.
 export function staffLogout(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
@@ -105,10 +120,20 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
   return data.accessToken as string;
 }
 
+// Обновить access-токен по сохранённому refresh и записать его в сессию.
+// Бросает Error('refresh_failed'), если сессии нет или refresh отклонён.
+export async function refreshStaffAccessToken(): Promise<string> {
+  const auth = getStaffAuth();
+  if (!auth) throw new Error('refresh_failed');
+  const accessToken = await refreshAccessToken(auth.refreshToken);
+  storeAccessToken(accessToken);
+  return accessToken;
+}
+
 // fetch() с Bearer access-токеном сотрудника.
 // При 401 один раз пробует обновить access-токен по refresh-токену и повторяет
 // исходный запрос; если refresh тоже не удался — чистит staffAuth и бросает
-// Error('staff_session_expired') (страница должна показать форму входа заново).
+// Error('staff_session_expired') (страница должна отправить на /login).
 export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const auth = getStaffAuth();
   if (!auth) throw new Error('staff_session_expired');
@@ -128,11 +153,10 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   // Access-токен истёк (12h) — пробуем refresh ровно один раз.
   let newAccessToken: string;
   try {
-    newAccessToken = await refreshAccessToken(auth.refreshToken);
+    newAccessToken = await refreshStaffAccessToken();
   } catch {
     staffLogout();
     throw new Error('staff_session_expired');
   }
-  storeAccessToken(newAccessToken);
   return doFetch(newAccessToken);
 }
