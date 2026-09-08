@@ -16,6 +16,7 @@
 | `/pages/[slug]` | редактор страницы (rich text) |
 | `/home-content` | главная страница сайта: hero, баннеры, заголовки, отели, направления, партнёры, FAQ, соцсети |
 | `/callback-requests` | заявки «Перезвоните мне» |
+| `/notifications` | push-уведомления: рассылки, правила напоминаний, история (`?tab=campaigns|reminders|history`); данные — хаб уведомлений voip `/api/push/*` |
 | `/banners`, `/faq`, `/partners` | редиректы на соответствующие секции `/home-content` |
 
 В навигации последним пунктом стоит внешняя ссылка «Звонки» → https://calling.totus.club.
@@ -56,5 +57,6 @@ npm run build && npm run start
 **voip** (`NEXT_PUBLIC_VOIP_API_URL`):
 - `/api/web/login`
 - `/api/users`, `/api/users/:loyaltyId`, `/api/users/by-id/:id`, `PATCH /api/users/:id/access`
+- `/api/push/*` — хаб уведомлений (status, stats, history, test, campaigns, reminders); требует миграции и `INTERNAL_API_KEY`/VAPID на сервере, иначе `503 notifications_not_migrated`
 
 > **Внимание:** эндпоинты `/api/admin/*` на kedam_API сейчас не защищены JWT-guard'ом. Авторизация в админке — только на стороне фронта (localStorage), поэтому доступ к панели и к API должен ограничиваться на уровне сети / reverse proxy до тех пор, пока guard не появится на бэкенде.

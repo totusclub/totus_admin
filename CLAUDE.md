@@ -17,6 +17,7 @@
 | `app/home-content/` | все секции главной страницы сайта |
 | `app/callback-requests/` | заявки «Перезвоните мне» |
 | `app/banners/`, `app/faq/`, `app/partners/` | редиректы на якоря `/home-content` |
+| `app/notifications/`, `components/notifications/*`, `lib/push-api.ts` | раздел «Уведомления»: рассылки, правила напоминаний, история пушей — хаб `calling_api_v2` (`SERVER_BASE_URL/api/push/*`, staff-JWT), вкладки `?tab=campaigns|reminders|history` |
 | `components/AdminNav.tsx` | верхняя навигация; последний пункт — внешняя ссылка на calling.totus.club |
 | `components/AuthGuard.tsx` | клиентская проверка сессии (`localStorage.webAppUser`, role === 'agent') |
 | `components/PageShell.tsx` | обёртка страницы с фоном |
