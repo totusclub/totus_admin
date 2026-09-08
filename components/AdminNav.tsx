@@ -21,6 +21,7 @@ const LINKS: NavLink[] = [
     { href: '/orders', label: 'Заказы', icon: 'luggage' },
     { href: '/lt-orders', label: 'Level Travel', icon: 'globe' },
     { href: '/order-requests', label: 'Обращения', icon: 'mail' },
+    { href: '/notifications', label: 'Уведомления', icon: 'bell' },
     { href: '/pages', label: 'Страницы', icon: 'file' },
     { href: '/home-content', label: 'Главная', icon: 'home' },
     { href: '/callback-requests', label: 'Заявки на звонок', icon: 'smartPhone' },
