@@ -152,10 +152,11 @@ export default function ReminderEditor({
 
     const update = (patch: Partial<ReminderForm>) => onChange({ ...form, ...patch });
 
-    // Предпросмотр на примерных данных сервера (debounce).
+    // Предпросмотр на примерных данных сервера (debounce) — только когда заполнены и заголовок, и текст.
     useEffect(() => {
-        if (!form.title.trim() && !form.body.trim()) {
+        if (!form.title.trim() || !form.body.trim()) {
             setPreview(null);
+            setPreviewError(null);
             return;
         }
         let cancelled = false;

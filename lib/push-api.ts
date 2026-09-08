@@ -163,7 +163,7 @@ export interface CampaignBody {
 }
 
 export interface CampaignsResponse {
-  campaigns: Campaign[];
+  items: Campaign[];
   hasMore?: boolean;
 }
 
@@ -343,7 +343,7 @@ export async function countAudience(segment: Segment, type: CampaignType): Promi
   return data.audience || { users: 0, devices: 0 };
 }
 
-// GET /api/push/campaigns?before&limit&status
+// GET /api/push/campaigns?before&limit&status → { items, hasMore }
 export function listCampaigns(params: { before?: number; limit?: number; status?: CampaignStatus | '' } = {}): Promise<CampaignsResponse> {
   return request<CampaignsResponse>(`/campaigns${qs(params)}`, {}, 'Не удалось загрузить рассылки');
 }

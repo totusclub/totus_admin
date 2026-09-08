@@ -116,19 +116,33 @@ export function describeRule(rule: Pick<ReminderRule, 'event' | 'offsetValue' | 
     return `${event} ${offset}${time}`;
 }
 
-/** «Рассылка №12» / «Напоминание „За сутки до вылета“» / «Поддержка» / «Тест» / «Система». */
+/** «Рассылка №12» / «Напоминание „За сутки до вылета“» / «Тест напоминания №3» / «Поддержка» / «Заказы (API)» / «Тест» / «Система». */
 export function describeSource(source: string | undefined, ruleNames: Record<number, string>): string {
     if (!source) return 'Система';
     const campaign = /^campaign:(\d+)$/.exec(source);
     if (campaign) return `Рассылка №${campaign[1]}`;
+    const reminderTest = /^reminder_test:(\d+)$/.exec(source);
+    if (reminderTest) return `Тест напоминания №${reminderTest[1]}`;
     const reminder = /^reminder:(\d+)$/.exec(source);
     if (reminder) {
         const name = ruleNames[Number(reminder[1])];
         return name ? `Напоминание „${name}“` : `Напоминание №${reminder[1]}`;
     }
     if (source === 'support_chat') return 'Поддержка';
+    if (source === 'totus_api') return 'Заказы (API)';
     if (source === 'test') return 'Тест';
     return 'Система';
+}
+
+/** Текст результата тестовой отправки: хаб отвечает { recipients, push: {sent, ...} }. */
+export function testResultMessage(result: Record<string, unknown> | null | undefined, okText = 'Тестовый пуш отправлен'): string {
+    const recipients = typeof result?.recipients === 'number' ? result.recipients : null;
+    const push = result?.push as { sent?: number } | undefined;
+    const sent = typeof push?.sent === 'number' ? push.sent : null;
+    if (recipients === 0 || sent === 0) {
+        return 'Отправлено, но получатель не найден, категория отключена или нет устройств';
+    }
+    return okText;
 }
 
 export function userDisplay(user?: { name?: string | null; email?: string | null } | null, userId?: number): { name: string; email: string } {
