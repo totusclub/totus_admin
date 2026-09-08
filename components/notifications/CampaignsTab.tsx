@@ -36,6 +36,7 @@ import {
     compactInput,
     formatDateTime,
     selectStyle,
+    testResultMessage,
 } from './shared';
 
 const TITLE_MAX = 40;
@@ -133,12 +134,12 @@ export default function CampaignsTab({ staffEmail }: { staffEmail: string }) {
         };
     }, [form.segment, form.type, recount]);
 
-    /* ── список рассылок ────────────────────────────────────────────────── */
+    /* ── список рассылок (GET /campaigns → { items, hasMore }) ────────────────────── */
     const loadList = useCallback(async (silent = false) => {
         if (!silent) setListLoading(true);
         try {
             const result = await listCampaigns({ limit: LIST_LIMIT });
-            setCampaigns(result.campaigns || []);
+            setCampaigns(result.items || []);
             setListError(null);
         } catch (e: any) {
             if (!silent) setListError(e?.message || 'Не удалось загрузить рассылки');
@@ -239,21 +240,22 @@ export default function CampaignsTab({ staffEmail }: { staffEmail: string }) {
             return;
         }
         run('draft', async () => {
+            // Хаб сам переводит черновик с датой в будущем в «Запланировано» — список обновится в run().
             if (editingId) await updateCampaign(editingId, buildBody({ draft: true }));
             else await createCampaign(buildBody({ draft: true }));
             resetForm();
-            return 'Черновик сохранён';
+            return form.when === 'scheduled' && form.scheduledAt ? 'Черновик сохранён (с датой отправки — см. статус в списке)' : 'Черновик сохранён';
         });
     };
 
     const handleTest = async (target: { userId?: number; email?: string }) => {
-        await sendTestPush({
+        const result = await sendTestPush({
             ...target,
             title: form.title.trim() || 'Тестовое уведомление',
             body: form.body.trim() || 'Проверка push-уведомлений Totus Club',
             type: form.type,
         });
-        return 'Тестовый пуш отправлен';
+        return testResultMessage(result);
     };
 
     /* ── действия в списке ──────────────────────────────────────────────── */

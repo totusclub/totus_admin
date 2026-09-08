@@ -16,7 +16,7 @@ import {
     type ReminderRule,
 } from '@/lib/push-api';
 import ReminderEditor, { EMPTY_RULE, formToBody, ruleToForm, validateRule, type ReminderForm } from './ReminderEditor';
-import { ErrorBox, SuccessBox, TestPushModal, Toggle, describeRule, formatDateTime } from './shared';
+import { ErrorBox, SuccessBox, TestPushModal, Toggle, describeRule, formatDateTime, testResultMessage } from './shared';
 
 type Editing = { id: number | null; form: ReminderForm } | null;
 
@@ -133,8 +133,8 @@ export default function RemindersTab({ staffEmail }: { staffEmail: string }) {
 
     const handleTest = async (target: { userId?: number; email?: string }) => {
         if (!testRuleId) return 'Правило не выбрано';
-        await testReminderRule(testRuleId, target);
-        return 'Тестовое напоминание отправлено по последнему заказу получателя';
+        const result = await testReminderRule(testRuleId, target);
+        return testResultMessage(result, 'Тестовое напоминание отправлено по последнему заказу получателя');
     };
 
     const testRule = rules.find((r) => r.id === testRuleId);
