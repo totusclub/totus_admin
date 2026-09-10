@@ -6,13 +6,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { t, text, button } from '@/lib/theme';
 import { ErrorBox, SuccessBox, StatusBadge, compactInput, selectStyle } from '@/components/notifications/shared';
-import { listRoomTypes, toggleRoomType, deleteRoomType, formatMoney, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
+import { listRoomTypes, toggleRoomType, deleteRoomType, formatMoney, type RoomType } from '@/lib/rooms-api';
 import DuplicateDialog from './DuplicateDialog';
-import { STATUS_META, roomTypeStatus, roomTypeLabel, formatShortDateTime, Stars, Empty, Spinner, ConfirmDialog, TableWrap, tableStyle, thStyle, tdStyle, tdRight, thRight, useDebounced } from './shared';
+import { STATUS_META, roomTypeStatus, type ListStatus, roomTypeLabel, formatShortDateTime, Stars, Empty, Spinner, ConfirmDialog, TableWrap, tableStyle, thStyle, tdStyle, tdRight, thRight, useDebounced } from './shared';
 
-const STATUS_OPTIONS: { value: RoomTypeStatus | ''; label: string }[] = [
+const STATUS_OPTIONS: { value: ListStatus | ''; label: string }[] = [
     { value: '', label: 'Все статусы' },
     { value: 'replacing', label: 'Активен' },
+    { value: 'never_seen', label: 'Ещё не показывался' },
     { value: 'inactive', label: 'Выкл' },
     { value: 'source_missing', label: 'Источник не найден' },
     { value: 'margin_clamped', label: 'Маржа ограничена' },
@@ -25,7 +26,7 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [hotelFilter, setHotelFilter] = useState<string>(hotelId ? String(hotelId) : '');
-    const [status, setStatus] = useState<RoomTypeStatus | ''>('');
+    const [status, setStatus] = useState<ListStatus | ''>('');
     const [q, setQ] = useState('');
     const debouncedQ = useDebounced(q, 350);
     const [busyId, setBusyId] = useState<number | null>(null);
@@ -100,7 +101,7 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
                         ))}
                     </select>
                 ) : null}
-                <select style={{ ...selectStyle, width: 200 }} value={status} onChange={(e) => setStatus(e.target.value as RoomTypeStatus | '')}>
+                <select style={{ ...selectStyle, width: 200 }} value={status} onChange={(e) => setStatus(e.target.value as ListStatus | '')}>
                     {STATUS_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                     ))}

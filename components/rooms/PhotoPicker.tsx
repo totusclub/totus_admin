@@ -7,7 +7,7 @@ import { useRef, useState } from 'react';
 import Icon from '@/components/Icon';
 import { t, radius, text, button } from '@/lib/theme';
 import { ErrorBox } from '@/components/notifications/shared';
-import { uploadRoomImage, deleteRoomImage, imageUrl, type RoomImage } from '@/lib/rooms-api';
+import { uploadRoomImage, imageUrl, type RoomImage } from '@/lib/rooms-api';
 import { Segment } from './shared';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp';
@@ -108,14 +108,9 @@ export default function PhotoPicker({ ltImages, value, onChange }: { ltImages: R
         onChange([target, ...value.filter((im) => im.url !== url)]);
     };
 
-    const removeUpload = async (image: RoomImage) => {
-        onChange(value.filter((im) => im.url !== image.url));
-        try {
-            await deleteRoomImage(image.url);
-        } catch {
-            // файл мог быть уже удалён — на витрину не влияет
-        }
-    };
+    // Убираем только из списка: файл в uploads/ остаётся (DELETE /images не вызываем — до сохранения
+    // Room Type фото может понадобиться снова, а сирота на диске безопасна).
+    const removeUpload = (image: RoomImage) => onChange(value.filter((im) => im.url !== image.url));
 
     const onFiles = async (files: FileList | null) => {
         if (!files || !files.length) return;

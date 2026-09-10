@@ -21,6 +21,8 @@ export interface SearchForm {
     nights: string;
     adults: string;
     kids: string;
+    /** Возраст детей через запятую → kids_ages. */
+    kids_ages: string;
     stars: number[];
     q: string;
     only_ours: boolean;
@@ -54,10 +56,18 @@ export function formFromParams(sp: URLSearchParams): SearchForm {
         nights: sp.get('nights') || '7',
         adults: sp.get('adults') || '2',
         kids: sp.get('kids') || '0',
+        kids_ages: sp.get('kids_ages') || '',
         stars: parseStars(sp.get('stars')),
         q: sp.get('q') || '',
         only_ours: sp.get('only_ours') === '1',
     };
+}
+
+/** Возраста детей «7, 12» → «7,12»; пусто, если детей нет или возраста не заданы (LT требует kids_ages вместе с kids). */
+export function kidsAges(form: Pick<SearchForm, 'kids' | 'kids_ages'>): string {
+    if (!Number(form.kids)) return '';
+    const ages = form.kids_ages.split(/[\s,;]+/).map((s) => Number(s)).filter((n) => Number.isInteger(n) && n >= 0 && n < 18);
+    return ages.length ? ages.slice(0, Number(form.kids)).join(',') : '';
 }
 
 export function paramsFromForm(form: SearchForm, requestId?: string | null): URLSearchParams {
@@ -69,7 +79,11 @@ export function paramsFromForm(form: SearchForm, requestId?: string | null): URL
     p.set('start_date', form.start_date);
     p.set('nights', form.nights || '7');
     p.set('adults', form.adults || '2');
-    if (Number(form.kids)) p.set('kids', form.kids);
+    const ages = kidsAges(form);
+    if (ages) {
+        p.set('kids', String(ages.split(',').length));
+        p.set('kids_ages', ages);
+    }
     if (form.stars.length) p.set('stars', starsParam(form.stars));
     if (form.q.trim()) p.set('q', form.q.trim());
     if (form.only_ours) p.set('only_ours', '1');
@@ -97,6 +111,10 @@ export default function HotelsTab({ initialParams }: { initialParams: URLSearchP
             setError('Укажите дату заезда');
             return;
         }
+        if (Number(f.kids) && !kidsAges(f)) {
+            setError('Укажите возраст детей через запятую (например 7, 12) — Level.Travel требует его вместе с числом детей');
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -107,7 +125,8 @@ export default function HotelsTab({ initialParams }: { initialParams: URLSearchP
                 start_date: f.start_date,
                 nights: f.nights || 7,
                 adults: f.adults || 2,
-                kids: Number(f.kids) ? f.kids : undefined,
+                kids: kidsAges(f) ? String(kidsAges(f).split(',').length) : undefined,
+                kids_ages: kidsAges(f) || undefined,
                 stars: f.stars.length ? starsParam(f.stars) : undefined,
                 q: f.q.trim() || undefined,
                 only_ours: f.only_ours,
@@ -153,7 +172,7 @@ export default function HotelsTab({ initialParams }: { initialParams: URLSearchP
                 }}
                 style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}
             >
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 1fr) minmax(160px, 1fr) minmax(140px, 1fr) 150px 90px 90px 90px', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 1fr) minmax(160px, 1fr) minmax(140px, 1fr) 150px 90px 90px 90px 130px', gap: 12 }}>
                     <Field label="Страна (ISO2)">
                         <input list="rooms-countries" style={compactInput} value={form.to_country} onChange={(e) => set('to_country', e.target.value)} placeholder="EG" maxLength={2} />
                         <datalist id="rooms-countries">
@@ -179,6 +198,9 @@ export default function HotelsTab({ initialParams }: { initialParams: URLSearchP
                     </Field>
                     <Field label="Детей">
                         <input type="number" min={0} max={4} style={compactInput} value={form.kids} onChange={(e) => set('kids', e.target.value)} />
+                    </Field>
+                    <Field label="Возраст детей">
+                        <input style={compactInput} value={form.kids_ages} onChange={(e) => set('kids_ages', e.target.value)} placeholder="7, 12" disabled={!Number(form.kids)} />
                     </Field>
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>

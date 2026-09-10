@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { t, radius, text, cardStyle, button } from '@/lib/theme';
 import { ErrorBox, StatusBadge, selectStyle } from '@/components/notifications/shared';
-import { getPriceLog, getChangeLog, formatMoney, ruleLabel, type ChangeLogItem, type PriceLogItem, type RoomType } from '@/lib/rooms-api';
+import { getPriceLog, getChangeLog, formatMoney, ruleLabel, snapshotLabel, type ChangeLogItem, type PriceLogItem, type RoomType } from '@/lib/rooms-api';
 import { formatDateTime, formatShortDateTime, describeChange, Empty, Spinner, TableWrap, tableStyle, thStyle, tdStyle, tdRight, thRight } from './shared';
 
 const PERIODS: { value: number; label: string }[] = [
@@ -196,7 +196,7 @@ export default function PriceHistory({ roomTypes, initialId }: { roomTypes: Room
                                             <td style={tdRight}>{formatMoney(i.providerPrice)}</td>
                                             <td style={{ ...tdRight, fontWeight: 600 }}>{formatMoney(i.finalPrice)}</td>
                                             <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                                                {i.rule?.ruleType ? ruleLabel(i.rule as { ruleType: 'percent' | 'absolute'; ruleValue: number }) : '—'}
+                                                {snapshotLabel(i.rule)}
                                                 {i.marginClamped ? <span style={{ marginLeft: 6 }}><StatusBadge label="ограничена" tone="error" /></span> : null}
                                             </td>
                                             <td style={{ ...tdRight, color: i.margin < 0 ? t.error : t.success }}>{formatMoney(i.margin, true)}</td>
