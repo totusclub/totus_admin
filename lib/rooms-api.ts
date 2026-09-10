@@ -3,7 +3,7 @@
 // Backend: totus_API `/api/admin/rooms/*` (staff-JWT strict). Bearer-токен сотрудника
 // ко всем запросам на API_BASE_URL добавляет глобальный installStaffFetch (lib/http.ts),
 // поэтому здесь — обычный fetch. Контракт: claude/CUSTOM_ROOMS_PLAN_RU.md, §4 API
-// (docs/CUSTOM_ROOMS_API.md в totus_API).
+// (docs/CUSTOM_ROOMS_API.md в totus_API); бронирования без Level.Travel — там же, §6.
 
 import { API_BASE_URL } from './server';
 
@@ -336,6 +336,166 @@ export interface PreviewResult {
   rows: PreviewRow[];
 }
 
+/* ── Бронирования наших Room Type (без Level.Travel) ──────────────────── */
+// Контракт: docs/CUSTOM_ROOMS_API.md §6 в totus_API (`/api/admin/rooms/bookings/*`).
+
+export type BookingStatus = 'pending_payment' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'cancelled';
+export type BookingPaymentStatus = 'pending' | 'paid' | 'failed' | 'refund_pending' | 'refunded' | 'partially_refunded';
+export type BookingRejectReason = 'no_availability' | 'price_changed' | 'data_error' | 'other';
+/** Фильтр списка: pending = pending_confirmation, rejected = rejected + cancelled, refund = refund_status='pending'. */
+export type BookingListStatus = 'all' | 'pending' | 'confirmed' | 'rejected' | 'refund' | 'unpaid';
+export type BookingEventType = 'created' | 'paid' | 'payment_failed' | 'confirmed' | 'rejected' | 'cancelled' | 'refund_done' | 'voucher_uploaded' | 'voucher_sent' | 'comment' | 'notified';
+
+export interface BookingRefund {
+  amount: number | null;
+  method: 'manual';
+  status: 'pending' | 'done';
+  at: string | null;
+}
+
+export interface BookingVoucher {
+  url: string;
+  title: string;
+  sentAt: string | null;
+}
+
+export interface BookingCustomer {
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+/** Элемент списка: totus_booking (§6.2) + поля для админки. */
+export interface Booking {
+  internal: true;
+  bookingId: number;
+  orderId: string;
+  operator: string;
+  status: BookingStatus;
+  statusLabel: string;
+  statusText: string;
+  paymentStatus: BookingPaymentStatus;
+  paidAt: string | null;
+  paidAmount: number | null;
+  hotelBookingRef: string | null;
+  confirmedAt: string | null;
+  clientMessage: string | null;
+  rejectedAt: string | null;
+  rejectReason: BookingRejectReason | null;
+  rejectReasonLabel: string | null;
+  rejectMessage: string | null;
+  refund: BookingRefund | null;
+  voucher: BookingVoucher | null;
+  hotel: { id: number | null; name: string | null; stars: number | null; city: string | null };
+  room: string | null;
+  meal: string | null;
+  mealName: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  nights: number | null;
+  adults: number | null;
+  kids: number | null;
+  providerPrice: number | null;
+  finalPrice: number | null;
+  priceRule: { type: RuleType; value: number | null; label: string | null } | null;
+  /** ПД покупателя — показываем в админке, в логи/URL не выносим. */
+  customer: BookingCustomer;
+  createdAt: string | null;
+  updatedAt: string | null;
+  staffComment: string | null;
+  confirmedBy: string | null;
+  rejectedBy: string | null;
+  refundBy: string | null;
+  roomTypeId: number;
+  sourceRoomName: string | null;
+  hotelCountry: string | null;
+  touristsCount: number;
+}
+
+/** Турист как пришёл в create-package (формат LT; поля не гарантированы). */
+export interface BookingTourist {
+  first_name?: string;
+  last_name?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  surname?: string;
+  birthday?: string;
+  [key: string]: unknown;
+}
+
+export interface BookingEvent {
+  id: number;
+  type: BookingEventType | string;
+  staffName: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string | null;
+}
+
+export interface BookingDetails {
+  booking: Booking & {
+    tourists: BookingTourist[];
+    contact: Record<string, unknown> | null;
+    hotelSnapshot: Record<string, unknown> | null;
+    roomSnapshot: Record<string, unknown> | null;
+    packageId: string | null;
+    sourceOfferId: string | null;
+  };
+  roomType: { id: number; name: string | null; sourceRoomName: string | null; hotelName?: string | null; active?: boolean };
+  events: BookingEvent[];
+  order: { orderId: string; payStatus: string | null; transactionCode: string | null; orderState: string | null; payUrl: string | null; payAmount: number | null };
+}
+
+export interface BookingsSummary {
+  pending: number;
+  confirmed30d: number;
+  rejected: number;
+  refundPending: number;
+  refundPendingAmount: number;
+}
+
+export interface BookingsListParams {
+  status?: BookingListStatus;
+  hotel_id?: number | string;
+  operator?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface BookingsListResult {
+  items: Booking[];
+  total: number;
+  page: number;
+  limit: number;
+  summary: BookingsSummary;
+}
+
+export interface ConfirmBookingBody {
+  hotelBookingRef?: string | null;
+  clientMessage?: string | null;
+  notify?: boolean;
+}
+
+export interface RejectBookingBody {
+  reason: BookingRejectReason;
+  message?: string | null;
+  /** По умолчанию — вся оплаченная сумма. */
+  refundAmount?: number | null;
+  /** Возврат уже выполнен вручную — сразу refund.status='done'. */
+  refundDone?: boolean;
+  notify?: boolean;
+}
+
+export const BOOKING_REJECT_REASONS: { value: BookingRejectReason; label: string }[] = [
+  { value: 'no_availability', label: 'Нет мест на эти даты' },
+  { value: 'price_changed', label: 'Цена изменилась' },
+  { value: 'data_error', label: 'Ошибка в данных' },
+  { value: 'other', label: 'Другое' },
+];
+
 /* ── Ошибки ───────────────────────────────────────────────────────────── */
 
 export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
@@ -363,6 +523,19 @@ export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
   forbidden: 'Недостаточно прав',
   unauthorized: 'Требуется вход сотрудника',
   internal_error: 'Внутренняя ошибка сервера',
+};
+
+/** Ошибки бронирований (`/bookings/*`) — переопределяют общие коды, где смысл другой. */
+export const BOOKING_ERROR_MESSAGES: Record<string, string> = {
+  not_found: 'Бронирование не найдено',
+  invalid_status: 'Действие недоступно для текущего статуса бронирования — обновите страницу',
+  reason_invalid: 'Выберите причину отклонения',
+  refund_amount_invalid: 'Сумма возврата должна быть от 0 до оплаченной суммы',
+  voucher_required: 'Сначала загрузите ваучер (PDF)',
+  file_required: 'Выберите PDF-файл ваучера',
+  file_too_large: 'Файл ваучера больше 10 МБ',
+  file_invalid: 'Допустим только PDF',
+  file_type_invalid: 'Допустим только PDF',
 };
 
 export class RoomsApiError extends Error {
@@ -543,6 +716,82 @@ export async function getRoomSettings(): Promise<RoomSettings> {
 export async function updateRoomSettings(patch: Partial<RoomSettings>): Promise<RoomSettings> {
   const data = await request<{ ok: boolean; settings: RoomSettings }>('/settings', { method: 'PUT', body: JSON.stringify(patch) }, 'Не удалось сохранить настройки');
   return data.settings;
+}
+
+/* ── Бронирования (без Level.Travel) ──────────────────────────────────── */
+
+/** Тот же request, но коды ошибок — с подписями бронирований. */
+async function bookingRequest<T>(path: string, init: RequestInit = {}, fallback = 'Ошибка запроса'): Promise<T> {
+  try {
+    return await request<T>(`/bookings${path}`, init, fallback);
+  } catch (e) {
+    if (e instanceof RoomsApiError && BOOKING_ERROR_MESSAGES[e.code]) {
+      throw new RoomsApiError(e.status, e.code, BOOKING_ERROR_MESSAGES[e.code]);
+    }
+    throw e;
+  }
+}
+
+// GET /bookings?status&hotel_id&operator&q&from&to&page&limit → { items, total, page, limit, summary }
+export function listBookings(params: BookingsListParams = {}): Promise<BookingsListResult> {
+  return bookingRequest<BookingsListResult>(qs(params), {}, 'Не удалось загрузить бронирования');
+}
+
+// GET /bookings/summary → { summary }
+export async function getBookingsSummary(): Promise<BookingsSummary> {
+  const data = await bookingRequest<{ summary: BookingsSummary }>('/summary', {}, 'Не удалось загрузить сводку бронирований');
+  return data.summary;
+}
+
+// GET /bookings/:id → { booking, roomType, events, order }
+export function getBooking(id: number): Promise<BookingDetails> {
+  return bookingRequest<BookingDetails>(`/${id}`, {}, 'Не удалось загрузить бронирование');
+}
+
+// POST /bookings/:id/confirm { hotelBookingRef?, clientMessage?, notify } — только из pending_confirmation
+export async function confirmBooking(id: number, body: ConfirmBookingBody): Promise<Booking> {
+  const data = await bookingRequest<{ ok: boolean; booking: Booking }>(`/${id}/confirm`, { method: 'POST', body: JSON.stringify(body) }, 'Не удалось подтвердить бронирование');
+  return data.booking;
+}
+
+// POST /bookings/:id/reject { reason, message?, refundAmount?, refundDone?, notify } — из pending_confirmation
+export async function rejectBooking(id: number, body: RejectBookingBody): Promise<Booking> {
+  const data = await bookingRequest<{ ok: boolean; booking: Booking }>(`/${id}/reject`, { method: 'POST', body: JSON.stringify(body) }, 'Не удалось отклонить бронирование');
+  return data.booking;
+}
+
+// POST /bookings/:id/cancel — то же для уже подтверждённого (confirmed → cancelled)
+export async function cancelBooking(id: number, body: RejectBookingBody): Promise<Booking> {
+  const data = await bookingRequest<{ ok: boolean; booking: Booking }>(`/${id}/cancel`, { method: 'POST', body: JSON.stringify(body) }, 'Не удалось отменить бронирование');
+  return data.booking;
+}
+
+// POST /bookings/:id/refund-done { amount?, notify } — только при refund.status='pending'
+export async function bookingRefundDone(id: number, amount?: number | null, notify = true): Promise<Booking> {
+  const body: Record<string, unknown> = { notify };
+  if (amount !== undefined && amount !== null) body.amount = amount;
+  const data = await bookingRequest<{ ok: boolean; booking: Booking }>(`/${id}/refund-done`, { method: 'POST', body: JSON.stringify(body) }, 'Не удалось отметить возврат');
+  return data.booking;
+}
+
+// POST /bookings/:id/comment { text } — комментарий для сотрудников (клиенту не виден)
+export async function commentBooking(id: number, text: string): Promise<Booking> {
+  const data = await bookingRequest<{ ok: boolean; booking: Booking }>(`/${id}/comment`, { method: 'POST', body: JSON.stringify({ text }) }, 'Не удалось сохранить комментарий');
+  return data.booking;
+}
+
+// POST /bookings/:id/voucher (multipart `voucher`, PDF ≤ 10 МБ) — до или после подтверждения
+export async function uploadBookingVoucher(id: number, file: File): Promise<Booking> {
+  const form = new FormData();
+  form.append('voucher', file, file.name);
+  const data = await bookingRequest<{ ok: boolean; booking: Booking }>(`/${id}/voucher`, { method: 'POST', body: form }, 'Не удалось загрузить ваучер');
+  return data.booking;
+}
+
+// POST /bookings/:id/resend-voucher — письмо с ваучером + push (только confirmed с ваучером)
+export async function resendBookingVoucher(id: number): Promise<{ booking: Booking; result?: { sent?: boolean; error?: string } }> {
+  const data = await bookingRequest<{ ok: boolean; booking: Booking; result?: { sent?: boolean; error?: string } }>(`/${id}/resend-voucher`, { method: 'POST', body: JSON.stringify({}) }, 'Не удалось отправить ваучер');
+  return { booking: data.booking, result: data.result };
 }
 
 /* ── Хелперы ──────────────────────────────────────────────────────────── */
