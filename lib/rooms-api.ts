@@ -243,6 +243,12 @@ export interface HotelRoomsResult {
   settings: RoomSettings;
 }
 
+export interface PriceRuleSnapshot {
+  type?: RuleType;
+  value?: number;
+  label?: string;
+}
+
 export interface PriceLogItem {
   id: number;
   requestId: string | null;
@@ -253,7 +259,8 @@ export interface PriceLogItem {
   providerPrice: number;
   finalPrice: number;
   margin: number;
-  rule: Partial<RoomTypeRule>;
+  /** Слепок правила на момент показа (rule_snapshot): { type, value, label }. */
+  rule: PriceRuleSnapshot;
   marginClamped: boolean;
   seenAt: string | null;
 }
@@ -266,9 +273,15 @@ export interface ChangeLogItem {
   createdAt: string | null;
 }
 
+/** Заказ по Room Type (GET /room-types/:id/orders) — как отдаёт backend. */
 export interface RoomTypeOrder {
-  id: number;
-  [key: string]: unknown;
+  orderId: string;
+  userId: number | null;
+  payStatus: string | null;
+  orderState: string | null;
+  providerPrice: number;
+  finalPrice: number;
+  rule: PriceRuleSnapshot;
 }
 
 export interface HotelSearchParams {
@@ -548,6 +561,13 @@ export function ruleLabel(rule: { ruleType: RuleType; ruleValue: number } | null
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
   const abs = Math.abs(value);
   return rule.ruleType === 'percent' ? `${sign}${abs} %` : `${sign}${formatNumber(Math.round(abs))} ₽`;
+}
+
+/** Текст правила из слепка price-log: label с сервера, иначе собираем из type/value. */
+export function snapshotLabel(rule: PriceRuleSnapshot | null | undefined): string {
+  if (rule?.label) return rule.label;
+  if (rule?.type && rule.value !== undefined && rule.value !== null) return ruleLabel({ ruleType: rule.type, ruleValue: Number(rule.value) });
+  return '—';
 }
 
 export function formatNumber(value: number): string {

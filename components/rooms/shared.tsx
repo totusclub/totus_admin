@@ -11,19 +11,26 @@ import { formatMoney, ruleLabel, type ChangeLogItem, type RoomType, type RoomTyp
 
 /* ── Справочники ──────────────────────────────────────────────────────── */
 
-export const STATUS_META: Record<RoomTypeStatus, { label: string; tone: BadgeTone }> = {
+export type ListStatus = RoomTypeStatus | 'never_seen';
+
+export const STATUS_META: Record<ListStatus, { label: string; tone: BadgeTone }> = {
     replacing: { label: 'Активен', tone: 'success' },
     inactive: { label: 'Выкл', tone: 'neutral' },
     source_missing: { label: 'Источник не найден', tone: 'warning' },
     margin_clamped: { label: 'Маржа ограничена', tone: 'error' },
+    never_seen: { label: 'Ещё не показывался', tone: 'neutral' },
 };
 
-/** Статус для списка (GET /room-types не считает по выдаче — берём `last`). */
-export function roomTypeStatus(rt: RoomType): RoomTypeStatus {
-    if (rt.status) return rt.status;
+/**
+ * Статус для карточек и списка. Выключенный — всегда «Выкл» (backend тоже отдаёт 'inactive');
+ * по выдаче (GET /hotels/:id/rooms) — `status` сервера; в списке (GET /room-types) — по `last`:
+ * активный без показов — «Ещё не показывался», не «Источник не найден».
+ */
+export function roomTypeStatus(rt: RoomType): ListStatus {
     if (!rt.active) return 'inactive';
+    if (rt.status) return rt.status;
     if (rt.last?.marginClamped) return 'margin_clamped';
-    if (!rt.last?.seenAt) return 'source_missing';
+    if (!rt.last?.seenAt) return 'never_seen';
     return 'replacing';
 }
 
@@ -33,6 +40,7 @@ export function statusText(rt: RoomType): string {
     if (status === 'replacing') return `Показывается вместо предложения ${rt.operatorNames?.[0] || 'оператора'}`;
     if (status === 'source_missing') return 'Источник не найден на эти даты';
     if (status === 'margin_clamped') return 'Маржа ограничена минимальным порогом';
+    if (status === 'never_seen') return 'Ещё не показывался на витрине';
     return 'Выключен — на витрине не показывается';
 }
 
