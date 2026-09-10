@@ -8,7 +8,7 @@ import Icon from '@/components/Icon';
 import { t, radius, text, cardStyle, button } from '@/lib/theme';
 import { ErrorBox } from '@/components/notifications/shared';
 import { previewPrice, formatMoney, ruleLabel, type PreviewResult, type PreviewRow, type RoomSettings, type RoomTypeRuleInput } from '@/lib/rooms-api';
-import { BrandBadge, Thumb, useDebounced, tableStyle, thStyle, tdStyle, tdRight, thRight, TableWrap, Spinner, plural } from './shared';
+import { Thumb, useDebounced, tableStyle, thStyle, tdStyle, tdRight, thRight, TableWrap, Spinner, plural } from './shared';
 
 export interface PreviewOffer {
     operator_name?: string | null;
@@ -40,8 +40,8 @@ export default function PricePreview({
     subtitle?: string;
     onRefresh?: () => void;
     refreshing?: boolean;
-    /** Мини-карточка «Так увидит пользователь». */
-    userCard?: { name: string; badge?: string | null; meta?: string; photo?: string; sourceName?: string | null; operator?: string | null };
+    /** Мини-карточка «Так увидит пользователь» (без бейджа — на витрине наши комнаты не помечаются). */
+    userCard?: { name: string; meta?: string; photo?: string; sourceName?: string | null; operator?: string | null };
     nights?: number;
 }) {
     const key = useMemo(() => JSON.stringify({ rule, offers }), [rule, offers]);
@@ -164,10 +164,7 @@ export default function PricePreview({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, borderRadius: radius.md, border: `1px solid ${t.accentBorder}`, borderLeft: `4px solid ${t.accent}`, background: t.surface }}>
                         <Thumb src={userCard.photo} width={110} height={80} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <BrandBadge label={userCard.badge} />
-                                <span style={{ ...text.cardTitle, fontSize: 15 }}>{userCard.name || 'Без названия'}</span>
-                            </div>
+                            <div style={{ ...text.cardTitle, fontSize: 15 }}>{userCard.name || 'Без названия'}</div>
                             {userCard.meta ? <div style={{ ...text.body, marginTop: 2 }}>{userCard.meta}</div> : null}
                             <div style={{ ...text.caption, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 Наше предложение{userCard.sourceName ? ` · на основе номера «${userCard.sourceName}»` : ''}{userCard.operator ? ` · ${userCard.operator}` : ''}

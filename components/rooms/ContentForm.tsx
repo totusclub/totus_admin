@@ -32,7 +32,7 @@ export default function ContentForm({ value, onChange, ltImages }: { value: Room
             <div style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
                 <div style={{ ...text.caption, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Контент (предзаполнен из Level.Travel)</div>
                 <Field label="Название RU">
-                    <input style={compactInput} value={value.nameRu} onChange={(e) => set('nameRu', e.target.value)} maxLength={255} placeholder="Deluxe Sea View · Totus" />
+                    <input style={compactInput} value={value.nameRu} onChange={(e) => set('nameRu', e.target.value)} maxLength={255} placeholder="Deluxe Sea View" />
                 </Field>
                 <Field label="Название EN">
                     <input style={compactInput} value={value.nameEn || ''} onChange={(e) => set('nameEn', e.target.value || null)} maxLength={255} />

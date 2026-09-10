@@ -334,10 +334,10 @@ export function Chip({ active, onClick, children, onRemove, title }: { active?: 
     );
 }
 
-/** Бейдж «Totus» на витрине. */
+/** Служебная пометка Room Type в админке (на витрине не показывается). */
 export function BrandBadge({ label }: { label?: string | null }) {
     return (
-        <span style={{ ...badge('accent'), padding: '3px 10px' }}>
+        <span title="Служебная пометка, на витрине не показывается" style={{ ...badge('accent'), padding: '3px 10px' }}>
             <span aria-hidden style={{ width: 6, height: 6, borderRadius: radius.pill, background: t.accent, display: 'inline-block' }} />
             {label || 'Totus'}
         </span>

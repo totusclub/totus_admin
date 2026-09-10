@@ -153,7 +153,7 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
             <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
                 <div style={text.cardTitle}>Витрина</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Field label="Бейдж на витрине">
+                    <Field label="Бейдж" hint="служебная пометка, на витрине не показывается">
                         <input style={compactInput} value={value.badge} onChange={(e) => set('badge', e.target.value)} maxLength={64} placeholder="Totus" />
                     </Field>
                     <Field label="Показывать при типе пакета">
