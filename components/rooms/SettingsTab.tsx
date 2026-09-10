@@ -109,7 +109,7 @@ export default function SettingsTab() {
                             <Segment<Rounding> options={ROUNDING_OPTIONS} value={rounding} onChange={setRounding} />
                         </Field>
                         <div style={{ maxWidth: 320 }}>
-                            <Field label="Бейдж по умолчанию">
+                            <Field label="Бейдж по умолчанию" hint="служебная пометка, на витрине не показывается">
                                 <input style={compactInput} value={badgeText} onChange={(e) => setBadgeText(e.target.value)} maxLength={64} />
                             </Field>
                         </div>

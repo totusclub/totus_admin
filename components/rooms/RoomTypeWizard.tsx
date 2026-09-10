@@ -88,10 +88,8 @@ export default function RoomTypeWizard({
     const [step, setStep] = useState(1);
     const [selected, setSelected] = useState<Set<string>>(() => new Set(offers.filter((o) => Number(o.operator_id) === Number(operatorId)).map((o) => o.id)));
     const ltImages = useMemo(() => ltRoomImages(room), [room]);
-    const [content, setContent] = useState<RoomTypeContent>(() => {
-        const c = contentFromLtRoom(room);
-        return { ...c, nameRu: c.nameRu ? `${c.nameRu} · ${settings?.badge || 'Totus'}` : '' };
-    });
+    // Название предзаполняется именем исходного номера (name_ru) — на витрине наши комнаты не помечаются.
+    const [content, setContent] = useState<RoomTypeContent>(() => contentFromLtRoom(room));
     const [rule, setRule] = useState<RuleFormState>(() => defaultRuleState(settings));
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -238,7 +236,7 @@ export default function RoomTypeWizard({
                         settings={settings}
                         subtitle={searchSummary}
                         nights={nights}
-                        userCard={{ name: content.nameRu, badge: rule.badge, meta: roomMeta(room, chosenMeals), photo: content.images[0]?.url, sourceName: roomName, operator: operatorNames.join(', ') }}
+                        userCard={{ name: content.nameRu, meta: roomMeta(room, chosenMeals), photo: content.images[0]?.url, sourceName: roomName, operator: operatorNames.join(', ') }}
                     />
                 </div>
             ) : null}

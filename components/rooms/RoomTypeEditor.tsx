@@ -236,7 +236,7 @@ export default function RoomTypeEditor({
                         settings={settings}
                         subtitle={sourceOffers.length ? searchSummary : roomType.last?.seenAt ? `по последней виденной цене · ${formatDateTime(roomType.last.seenAt)}` : undefined}
                         nights={nights}
-                        userCard={{ name: content.nameRu, badge: rule.badge, meta: roomMeta({ ...(roomType.sourceSnapshot || {}), id: roomType.sourceRoomId, area: content.area ?? undefined, view: content.view ?? undefined, accommodation: content.accommodation ?? undefined }), photo: content.images[0]?.url, sourceName: snapshotName, operator: roomType.operatorNames?.join(', ') }}
+                        userCard={{ name: content.nameRu, meta: roomMeta({ ...(roomType.sourceSnapshot || {}), id: roomType.sourceRoomId, area: content.area ?? undefined, view: content.view ?? undefined, accommodation: content.accommodation ?? undefined }), photo: content.images[0]?.url, sourceName: snapshotName, operator: roomType.operatorNames?.join(', ') }}
                     />
                 </div>
             </div>
