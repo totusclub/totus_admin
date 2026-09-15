@@ -17,7 +17,7 @@
 | `/home-content` | главная страница сайта: hero, баннеры, заголовки, отели, направления, партнёры, FAQ, соцсети |
 | `/callback-requests` | заявки «Перезвоните мне» |
 | `/notifications` | push-уведомления: рассылки, правила напоминаний, история (`?tab=campaigns|reminders|history`); данные — хаб уведомлений voip `/api/push/*` |
-| `/rooms` | «Отели и номера»: поиск отелей Level.Travel, наши Room Type поверх предложений LT, настройки (`?tab=hotels|room-types|settings`); `/rooms/hotel/[id]?request_id=` — номера отеля по операторам + мастер создания Room Type; `/rooms/room-type/[id]` — редактор; данные — totus_API `/api/admin/rooms/*` |
+| `/rooms` | «Отели и номера»: поиск отелей Level.Travel, наши Room Type поверх предложений LT, бронирования наших Room Type, настройки (`?tab=hotels|room-types|bookings|settings`); `/rooms/hotel/[id]?request_id=` — номера отеля по операторам + мастер создания Room Type; `/rooms/room-type/[id]` — редактор; `/rooms/booking/[id]` — карточка бронирования (подтвердить / отклонить / отменить, ваучер PDF, ручной возврат, комментарий, история); данные — totus_API `/api/admin/rooms/*` |
 | `/banners`, `/faq`, `/partners` | редиректы на соответствующие секции `/home-content` |
 
 В навигации последним пунктом стоит внешняя ссылка «Звонки» → https://calling.totus.club.
@@ -55,6 +55,7 @@ npm run build && npm run start
 - `/user/orders?user_id=` , `/orders?order_id=`, `/orders/documents?order_id=`
 - `/client/orders`, `/client/orders/:id` — прокси к Level Travel
 - `/api/admin/rooms/*` — наши Room Type (поиск отелей/номеров LT, room-types CRUD, preview-price, price-log, images, settings); требует миграции `custom_rooms` и подключения роутов в `app.js` на сервере, иначе `503 custom_rooms_not_migrated`
+- `/api/admin/rooms/bookings/*` — бронирования наших Room Type без Level.Travel (список + сводка, карточка, `confirm`, `reject`, `cancel`, `refund-done`, `comment`, `voucher` multipart PDF ≤ 10 МБ, `resend-voucher`); заказ хранится только в Totus, возврат денег — вручную (сотрудник отмечает выполнение), автоотклонения по таймеру нет
 
 **voip** (`NEXT_PUBLIC_VOIP_API_URL`):
 - `/api/web/login`
