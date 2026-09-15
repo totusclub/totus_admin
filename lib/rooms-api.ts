@@ -11,7 +11,7 @@ import { API_BASE_URL } from './server';
 
 const BASE = `${API_BASE_URL}/api/admin/rooms`;
 
-/* ── Типы ─────────────────────────────────────────────────────────────── */
+/* ── Типы ───────────────────────────────────────────────────────────────────── */
 
 export type RuleType = 'percent' | 'absolute';
 export type Rounding = 1 | 10 | 100;
@@ -22,8 +22,9 @@ export type PricingMode = 'fixed' | 'rule';
 /** Единица фиксированной цены: за проживание | за ночь (× nights_count предложения-шаблона). */
 export type FixedPriceUnit = 'total' | 'per_night';
 
-/** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена. */
-export type RoomTypeStatus = 'fixed' | 'replacing' | 'inactive' | 'source_missing' | 'margin_clamped';
+/** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена;
+ * диагностика: `no_offers` — номер в выдаче, но предложений нет; `no_pricing` — режим цены без цены/правила. */
+export type RoomTypeStatus = 'fixed' | 'replacing' | 'inactive' | 'source_missing' | 'no_offers' | 'no_pricing' | 'margin_clamped';
 
 export interface RoomTypeRule {
   ruleType: RuleType;
@@ -179,6 +180,9 @@ export interface RoomTypeLast {
   operator: string | null;
   seenAt: string | null;
   marginClamped: boolean;
+  /** Диагностика (дубль lastSkipReason/lastCheckedAt). */
+  skipReason?: string | null;
+  checkedAt?: string | null;
 }
 
 export interface RoomType {
@@ -222,6 +226,13 @@ export interface RoomType {
   active: boolean;
   sortOrder: number;
   last: RoomTypeLast;
+  /**
+   * Диагностика витрины: причина, по которой комната НЕ была вставлена в последний ответ /hotels-rooms по её отелю
+   * (`no_pricing…`, `search_type (…)`, `source_room_missing (source N; ids in result: …)`, `no_offers (…)`, `offer_map_failed (…)`);
+   * null — вставлена или ещё не проверялась (см. lastCheckedAt). Требует колонок миграции (иначе всегда null).
+   */
+  lastSkipReason?: string | null;
+  lastCheckedAt?: string | null;
   ordersCount?: number;
   createdBy: string | null;
   createdAt: string | null;
@@ -334,6 +345,59 @@ export interface RoomTypeOrder {
   rule: PriceRuleSnapshot;
 }
 
+/** GET /diagnostics — почему Room Type не виден на витрине (docs/CUSTOM_ROOMS_API.md §7). Отвечает и при 503 у остальных маршрутов. */
+export interface DiagnosticsRoomType {
+  id: number;
+  hotelId: number;
+  hotelName: string | null;
+  sourceRoomId: number;
+  sourceRoomName: string | null;
+  pricingMode: PricingMode;
+  pricingOk: boolean;
+  pricingLabel: string | null;
+  packageTypes: PackageType[];
+  lastSeenAt: string | null;
+  lastCheckedAt: string | null;
+  lastSkipReason: string | null;
+}
+
+export interface DiagnosticsMiddleware {
+  /** false — app.use(require('./middleware/customRooms')) не подключён или процесс не перезапущен. */
+  mounted: boolean;
+  middlewareCalls: number;
+  watchedCalls: number;
+  notReadySkips: number;
+  startSearchSeen: number;
+  hotelsRoomsSeen: number;
+  hotelsRoomsInjected: number;
+  hotelsRoomsErrors: number;
+  lastStartSearchAt: string | null;
+  lastHotelsRoomsAt: string | null;
+  lastHotelsRoomsHotelId: string | null;
+  lastHotelsRoomsSearchType: string | null;
+  lastInjectAt: string | null;
+  lastError: { at: string; message: string } | null;
+  /** С какого момента считаются счётчики (pm2 restart обнуляет). */
+  startedAt: string;
+}
+
+export interface Diagnostics {
+  ready: boolean;
+  disabledReason: string | null;
+  missingTables: string[];
+  missingColumns: string[];
+  diagColumns: boolean;
+  checkedAt: string | null;
+  dbError: string | null;
+  settings: RoomSettings | null;
+  env: { hotelSearchTypeCodes: string };
+  activeRoomTypes: DiagnosticsRoomType[];
+  appJsHooks: { middleware: DiagnosticsMiddleware; adminRoutes: boolean };
+  events: { at: string; line: string; error?: boolean }[];
+  /** Подсказки по-русски — что проверить владельцу. */
+  hints: string[];
+}
+
 export interface HotelSearchParams {
   to_country: string;
   to_city?: string;
@@ -413,7 +477,7 @@ export interface PreviewResult {
   rows: PreviewRow[];
 }
 
-/* ── Бронирования наших Room Type (без Level.Travel) ──────────────────── */
+/* ── Бронирования наших Room Type (без Level.Travel) ──────────────────────── */
 // Контракт: docs/CUSTOM_ROOMS_API.md §6 в totus_API (`/api/admin/rooms/bookings/*`).
 
 export type BookingStatus = 'pending_payment' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'cancelled';
@@ -573,7 +637,7 @@ export const BOOKING_REJECT_REASONS: { value: BookingRejectReason; label: string
   { value: 'other', label: 'Другое' },
 ];
 
-/* ── Ошибки ───────────────────────────────────────────────────────────── */
+/* ── Ошибки ─────────────────────────────────────────────────────────────────── */
 
 export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
   custom_rooms_not_migrated: 'Модуль Room Type не настроен на сервере (миграция)',
@@ -684,7 +748,7 @@ function qs(params: object): string {
   return s ? `?${s}` : '';
 }
 
-/* ── Отели и номера Level.Travel ──────────────────────────────────────── */
+/* ── Отели и номера Level.Travel ────────────────────────────────────────────── */
 
 // GET /hotels/search — enqueue + ожидание + grouped hotels (+ totus_room_types).
 // Повторный вызов с request_id — без нового поиска (фильтры/страница применяются к той же выдаче).
@@ -697,7 +761,7 @@ export function getHotelRooms(hotelId: number, requestId: string): Promise<Hotel
   return request<HotelRoomsResult>(`/hotels/${hotelId}/rooms${qs({ request_id: requestId })}`, {}, 'Не удалось загрузить номера отеля');
 }
 
-/* ── Room Type ────────────────────────────────────────────────────────── */
+/* ── Room Type ────────────────────────────────────────────────────────────── */
 
 // GET /room-types?hotel_id&active=1|0&q → { room_types, settings }
 export function listRoomTypes(params: { hotelId?: number | string; active?: boolean; q?: string } = {}): Promise<{ room_types: RoomType[]; settings: RoomSettings }> {
@@ -777,7 +841,7 @@ export async function getRoomTypeOrders(id: number, limit?: number): Promise<Roo
   return data.items || [];
 }
 
-/* ── Фото ─────────────────────────────────────────────────────────────── */
+/* ── Фото ───────────────────────────────────────────────────────────────────── */
 
 // POST /images (multipart `image`, до 15 МБ, jpeg/png/webp) → { image: {source:'upload', url} }
 export async function uploadRoomImage(file: File): Promise<RoomImage> {
@@ -792,7 +856,7 @@ export function deleteRoomImage(url: string): Promise<{ ok: boolean }> {
   return request('/images', { method: 'DELETE', body: JSON.stringify({ url }) }, 'Не удалось удалить фото');
 }
 
-/* ── Настройки ────────────────────────────────────────────────────────── */
+/* ── Настройки ────────────────────────────────────────────────────────────── */
 
 // GET /settings
 export async function getRoomSettings(): Promise<RoomSettings> {
@@ -806,7 +870,12 @@ export async function updateRoomSettings(patch: Partial<RoomSettings>): Promise<
   return data.settings;
 }
 
-/* ── Бронирования (без Level.Travel) ──────────────────────────────────── */
+// GET /diagnostics?recheck=1 — работает и когда модуль DISABLED (миграция не выполнена)
+export function getDiagnostics(recheck = false): Promise<Diagnostics> {
+  return request<Diagnostics>(`/diagnostics${qs({ recheck })}`, {}, 'Не удалось получить диагностику');
+}
+
+/* ── Бронирования (без Level.Travel) ────────────────────────────────────── */
 
 /** Тот же request, но коды ошибок — с подписями бронирований. */
 async function bookingRequest<T>(path: string, init: RequestInit = {}, fallback = 'Ошибка запроса'): Promise<T> {
@@ -882,7 +951,7 @@ export async function resendBookingVoucher(id: number): Promise<{ booking: Booki
   return { booking: data.booking, result: data.result };
 }
 
-/* ── Хелперы ──────────────────────────────────────────────────────────── */
+/* ── Хелперы ──────────────────────────────────────────────────────────────── */
 
 /** Абсолютный URL фото: свои (`/uploads/rooms/…`) лежат на totus_API, LT — по полной ссылке. */
 export function imageUrl(url: string | null | undefined): string {
