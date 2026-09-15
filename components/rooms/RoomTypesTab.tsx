@@ -12,7 +12,8 @@ import { STATUS_META, roomTypeStatus, type ListStatus, roomTypeLabel, formatShor
 
 const STATUS_OPTIONS: { value: ListStatus | ''; label: string }[] = [
     { value: '', label: 'Все статусы' },
-    { value: 'replacing', label: 'Активен' },
+    { value: 'fixed', label: 'Активен · фикс. цена' },
+    { value: 'replacing', label: 'Активен · правило' },
     { value: 'never_seen', label: 'Ещё не показывался' },
     { value: 'inactive', label: 'Выкл' },
     { value: 'source_missing', label: 'Источник не найден' },
@@ -129,7 +130,7 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
                                 <th style={thStyle}>Оператор</th>
                                 <th style={thStyle}>Номер-источник</th>
                                 <th style={thStyle}>Room Type</th>
-                                <th style={thStyle}>Правило</th>
+                                <th style={thStyle}>Цена</th>
                                 <th style={thRight}>Цена LT</th>
                                 <th style={thRight}>Наша</th>
                                 <th style={thRight}>Маржа</th>
@@ -142,8 +143,10 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
                         <tbody>
                             {visible.map((rt) => {
                                 const st = STATUS_META[roomTypeStatus(rt)];
+                                const fixed = rt.pricingMode === 'fixed';
                                 const provider = rt.last?.providerPrice;
-                                const final = rt.last?.finalPrice;
+                                // v2: fixed — наша цена известна всегда (previewPrice); rule — последняя показанная, иначе расчёт от last
+                                const final = fixed ? (rt.previewPrice ?? rt.fixedPrice ?? null) : (rt.last?.finalPrice ?? rt.previewPrice ?? null);
                                 const margin = provider != null && final != null ? final - provider : null;
                                 const busy = busyId === rt.id;
                                 return (
@@ -155,13 +158,19 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
                                                 <span style={text.caption}>{rt.hotelCity || ''}</span>
                                             </div>
                                         </td>
-                                        <td style={tdStyle}>{rt.operatorNames?.length ? rt.operatorNames.join(', ') : rt.operatorIds.join(', ')}</td>
+                                        <td style={tdStyle}>
+                                            <div style={{ fontWeight: 600 }}>{rt.operatorName || 'Arlekino'}</div>
+                                            {rt.operatorIds?.length ? <div style={text.caption}>замещает {rt.operatorNames?.length ? rt.operatorNames.join(', ') : rt.operatorIds.join(', ')}</div> : null}
+                                        </td>
                                         <td style={{ ...tdStyle, color: t.textSecondary }}>{rt.sourceRoomName || `#${rt.sourceRoomId}`}</td>
                                         <td style={tdStyle}>
                                             <div style={{ fontWeight: 600 }}>{rt.content?.nameRu}</div>
                                             {rt.mealTypes?.length ? <div style={text.caption}>{rt.mealTypes.join(', ')}</div> : null}
                                         </td>
-                                        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{roomTypeLabel(rt)}</td>
+                                        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                                            <div style={{ fontWeight: fixed ? 600 : 400 }}>{roomTypeLabel(rt)}</div>
+                                            <div style={text.caption}>{fixed ? (rt.fixedPriceUnit === 'per_night' ? 'за ночь' : 'за проживание') : 'от цены LT'}</div>
+                                        </td>
                                         <td style={tdRight}>{formatMoney(provider)}</td>
                                         <td style={{ ...tdRight, fontWeight: 600 }}>{formatMoney(final)}</td>
                                         <td style={{ ...tdRight, color: margin == null ? t.textTertiary : margin < 0 ? t.error : t.success }}>{formatMoney(margin, true)}</td>

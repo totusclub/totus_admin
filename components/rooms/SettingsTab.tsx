@@ -1,6 +1,6 @@
 'use client';
 
-// Вкладка «Настройки»: глобальная минимальная маржа, округление, бейдж, «только при типе пакета Отель».
+// Вкладка «Настройки»: глобальная минимальная маржа, округление, бейдж, «показывать только при поиске отелей» (v2: выкл по умолчанию).
 
 import { useEffect, useState } from 'react';
 import { t, text, button, cardStyle } from '@/lib/theme';
@@ -21,7 +21,7 @@ export default function SettingsTab() {
     const [marginValue, setMarginValue] = useState('');
     const [rounding, setRounding] = useState<Rounding>(1);
     const [badgeText, setBadgeText] = useState('Totus');
-    const [hotelOnly, setHotelOnly] = useState(true);
+    const [hotelOnly, setHotelOnly] = useState(false);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export default function SettingsTab() {
         setMarginValue(s.minMarginValue === null || s.minMarginValue === undefined ? '' : String(s.minMarginValue));
         setRounding(([1, 10, 100].includes(Number(s.rounding)) ? Number(s.rounding) : 1) as Rounding);
         setBadgeText(s.badge || 'Totus');
-        setHotelOnly(s.hotelOnly !== false);
+        setHotelOnly(s.hotelOnly === true);
     };
 
     useEffect(() => {
@@ -114,10 +114,10 @@ export default function SettingsTab() {
                             </Field>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <Toggle checked={hotelOnly} onChange={setHotelOnly} label="Только при типе пакета «Отель»" />
+                            <Toggle checked={hotelOnly} onChange={setHotelOnly} label="Показывать только при поиске отелей (без перелёта)" />
                             <div>
-                                <div style={{ fontSize: 14, color: t.textPrimary }}>Показывать наши Room Type только при типе пакета «Отель»</div>
-                                <div style={text.caption}>Поиск с перелётом (тур) — без замещения предложений</div>
+                                <div style={{ fontSize: 14, color: t.textPrimary }}>Показывать наши Room Type только при поиске отелей (без перелёта)</div>
+                                <div style={text.caption}>По умолчанию выключено: наши предложения видны при любом типе поиска (отель и тур с перелётом), если у самого Room Type не ограничен тип поиска</div>
                             </div>
                         </div>
                     </div>
