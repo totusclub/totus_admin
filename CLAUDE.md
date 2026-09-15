@@ -18,6 +18,7 @@
 | `app/callback-requests/` | заявки «Перезвоните мне» |
 | `app/banners/`, `app/faq/`, `app/partners/` | редиректы на якоря `/home-content` |
 | `app/notifications/`, `components/notifications/*`, `lib/push-api.ts` | раздел «Уведомления»: рассылки, правила напоминаний, история пушей — хаб `calling_api_v2` (`SERVER_BASE_URL/api/push/*`, staff-JWT), вкладки `?tab=campaigns|reminders|history` |
+| `app/rooms/`, `app/rooms/hotel/[id]/`, `app/rooms/room-type/[id]/`, `components/rooms/*`, `lib/rooms-api.ts` | раздел «Отели и номера»: поиск отелей Level.Travel, наши Room Type поверх предложений LT (мастер на основе номера, правило цены, фото, история цен), настройки — totus_API `API_BASE_URL/api/admin/rooms/*` (staff-JWT), вкладки `?tab=hotels|room-types|bookings|settings`; требует миграции custom_rooms на сервере (иначе `503 custom_rooms_not_migrated`). Вкладка «Бронирования» + `app/rooms/booking/[id]/` (`components/rooms/BookingsTab.tsx`, `ConfirmBookingDialog.tsx`, `RejectBookingDialog.tsx`, `BookingStatusBadge.tsx`) — заказы наших Room Type без Level.Travel: `/api/admin/rooms/bookings/*`; возврат только вручную, таймера/автоотклонения нет («ожидает N ч» — с момента оплаты); ПД клиента показываем, в URL/логи не выносим |
 | `components/AdminNav.tsx` | верхняя навигация; последний пункт — внешняя ссылка на calling.totus.club |
 | `components/AuthGuard.tsx` | клиентская проверка сессии (`localStorage.webAppUser`, role === 'agent') |
 | `components/PageShell.tsx` | обёртка страницы с фоном |
