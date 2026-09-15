@@ -4,6 +4,8 @@
 // ко всем запросам на API_BASE_URL добавляет глобальный installStaffFetch (lib/http.ts),
 // поэтому здесь — обычный fetch. Контракт: claude/CUSTOM_ROOMS_PLAN_RU.md, §4 API
 // (docs/CUSTOM_ROOMS_API.md в totus_API); бронирования без Level.Travel — там же, §6.
+// v2 (§2.1): связь по выбранному номеру LT без обязательного оператора, режим цены
+// fixed (цена Arlekino из админки) | rule (правило от цены LT), наш оператор operatorName/operatorId.
 
 import { API_BASE_URL } from './server';
 
@@ -15,9 +17,13 @@ export type RuleType = 'percent' | 'absolute';
 export type Rounding = 1 | 10 | 100;
 export type ImageSource = 'lt' | 'upload';
 export type PackageType = 'hotel' | 'package';
+/** v2: режим цены — fixed (цена Arlekino из админки, по умолчанию) | rule (правило от цены Level.Travel). */
+export type PricingMode = 'fixed' | 'rule';
+/** Единица фиксированной цены: за проживание | за ночь (× nights_count предложения-шаблона). */
+export type FixedPriceUnit = 'total' | 'per_night';
 
-/** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). */
-export type RoomTypeStatus = 'replacing' | 'inactive' | 'source_missing' | 'margin_clamped';
+/** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена. */
+export type RoomTypeStatus = 'fixed' | 'replacing' | 'inactive' | 'source_missing' | 'margin_clamped';
 
 export interface RoomTypeRule {
   ruleType: RuleType;
@@ -42,6 +48,22 @@ export interface RoomTypeRuleInput {
   maxPrice?: number | null;
   minMarginType?: RuleType | null;
   minMarginValue?: number | null;
+}
+
+/** v2: нормализованный режим цены (`pricing` в ответе; null — правило не задано в режиме rule). */
+export interface RoomTypePricing {
+  mode: PricingMode;
+  fixedPrice: number | null;
+  fixedPriceUnit: FixedPriceUnit;
+  rule: RoomTypeRule | null;
+}
+
+/** Режим цены в теле запроса / preview: fixed → fixedPrice > 0; rule → rule обязателен. */
+export interface PricingInput {
+  pricingMode: PricingMode;
+  fixedPrice?: number | null;
+  fixedPriceUnit?: FixedPriceUnit;
+  rule?: RoomTypeRuleInput | null;
 }
 
 export interface RoomImage {
@@ -129,6 +151,8 @@ export interface LtHotelRoom {
   min_price?: number;
   meal_types?: { id: string; min_price?: number; description?: string }[];
   offers: LtOffer[];
+  /** v2: id наших Room Type с источником = этот номер (показываются под номером всегда). */
+  room_types?: number[];
 }
 
 export interface PreviewRow {
@@ -136,12 +160,17 @@ export interface PreviewRow {
   meal: string | null;
   operator_id?: number;
   operator_name: string | null;
-  provider_price: number;
+  nights_count?: number | null;
+  /** null — расчёт фиксированной цены без предложения-шаблона. */
+  provider_price: number | null;
   final_price: number | null;
   margin: number | null;
   margin_percent: number | null;
   margin_clamped: boolean;
   floor?: number | null;
+  mode?: PricingMode | null;
+  our_operator_id?: number;
+  our_operator_name?: string;
 }
 
 export interface RoomTypeLast {
@@ -161,14 +190,28 @@ export interface RoomType {
   sourceRoomId: number;
   sourceRoomName: string | null;
   sourceSnapshot: LtRoom | null;
+  /** v2: необязательны — пустые = не ограничивать; заданные = замещение предложений этих операторов у номера. */
   operatorIds: number[];
   operatorNames: string[];
-  /** null — все типы питания источника. */
+  /** null — все типы питания источника (одно предложение с самым дешёвым питанием). */
   mealTypes: string[] | null;
+  /* v2: режим цены и наш оператор */
+  pricingMode: PricingMode;
+  fixedPrice: number | null;
+  fixedPriceUnit: FixedPriceUnit;
+  /** Название нашего оператора на витрине (по умолчанию «Arlekino»). */
+  operatorName: string;
+  /** id оператора в терминах LT, если известен; иначе синтетический (effectiveOperatorId). */
+  operatorId: number | null;
+  effectiveOperatorId?: number;
+  pricing: RoomTypePricing | null;
+  /** fixed → сама цена; rule → расчёт от last.providerPrice (null, если ещё не видели). */
+  previewPrice: number | null;
   content: RoomTypeContent;
   rule: RoomTypeRule | null;
-  ruleType: RuleType;
-  ruleValue: number;
+  /** null — правило не задано (режим fixed). */
+  ruleType: RuleType | null;
+  ruleValue: number | null;
   rounding: Rounding;
   minPrice: number | null;
   maxPrice: number | null;
@@ -185,6 +228,8 @@ export interface RoomType {
   updatedAt: string | null;
   /** Только в GET /hotels/:id/rooms и GET /room-types/:id. */
   ruleLabel?: string | null;
+  /** «1 ₽ (фикс.)», «1 500 ₽/ночь (фикс.)», «−10 %» — только в GET /hotels/:id/rooms и GET /room-types/:id. */
+  pricingLabel?: string | null;
   status?: RoomTypeStatus;
   preview?: PreviewRow[];
 }
@@ -243,10 +288,15 @@ export interface HotelRoomsResult {
   settings: RoomSettings;
 }
 
+/** Слепок цены (price-log, заказы): v1 — { type, value, label }; v2 — { mode:'fixed', fixedPrice, unit, label } | { mode:'rule', type, value, … }. */
 export interface PriceRuleSnapshot {
+  mode?: PricingMode;
   type?: RuleType;
-  value?: number;
-  label?: string;
+  value?: number | null;
+  fixedPrice?: number | null;
+  unit?: FixedPriceUnit;
+  operator?: string | null;
+  label?: string | null;
 }
 
 export interface PriceLogItem {
@@ -313,11 +363,20 @@ export interface RoomTypeBody {
   sourceRoomName?: string | null;
   sourceSnapshot?: LtRoom | null;
   source?: { room: LtRoom };
-  operatorIds: number[];
+  /** v2: необязательны (пустые = не ограничивать). */
+  operatorIds?: number[];
   operatorNames?: string[];
   mealTypes?: string[] | null;
   content?: Partial<RoomTypeContent> & { nameRu: string };
-  rule: RoomTypeRuleInput;
+  /** v2: default fixed; тело без pricingMode, но с rule → rule. */
+  pricingMode?: PricingMode;
+  fixedPrice?: number | null;
+  fixedPriceUnit?: FixedPriceUnit;
+  operatorName?: string;
+  operatorId?: number | null;
+  /** Обязательно только при pricingMode='rule'. */
+  rule?: RoomTypeRuleInput | null;
+  /** Пустые = любой тип поиска. */
   packageTypes?: PackageType[];
   badge?: string | null;
   active?: boolean;
@@ -331,8 +390,26 @@ export interface DuplicateBody {
   images?: 'same' | 'none';
 }
 
+export interface PreviewOfferInput {
+  operator_name?: string | null;
+  meal?: string | null;
+  price: number;
+  nights_count?: number | null;
+}
+
+/** POST /room-types/preview-price: rule → { pricingMode:'rule', rule, offers }; fixed → { pricingMode:'fixed', fixedPrice, fixedPriceUnit, offers? | nights? }. */
+export interface PreviewPriceBody extends PricingInput {
+  offers?: PreviewOfferInput[];
+  nights?: number | null;
+}
+
 export interface PreviewResult {
-  rule: RoomTypeRule & { label: string };
+  pricingMode: PricingMode;
+  fixedPrice: number | null;
+  fixedPriceUnit: FixedPriceUnit;
+  /** «1 ₽ (фикс.)» / «−10 %». */
+  label: string | null;
+  rule: (RoomTypeRule & { label: string }) | null;
   rows: PreviewRow[];
 }
 
@@ -397,7 +474,7 @@ export interface Booking {
   kids: number | null;
   providerPrice: number | null;
   finalPrice: number | null;
-  priceRule: { type: RuleType; value: number | null; label: string | null } | null;
+  priceRule: (PriceRuleSnapshot & { label: string | null }) | null;
   /** ПД покупателя — показываем в админке, в логи/URL не выносим. */
   customer: BookingCustomer;
   createdAt: string | null;
@@ -506,6 +583,10 @@ export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
   operator_required: 'Выберите хотя бы одно предложение оператора',
   name_required: 'Укажите название Room Type',
   area_invalid: 'Площадь должна быть числом',
+  pricing_mode_invalid: 'Выберите режим цены: фиксированная или правило от цены Level.Travel',
+  fixed_price_invalid: 'Укажите фиксированную цену больше нуля',
+  fixed_price_out_of_range: 'Фиксированная цена не может быть больше 100 000 000 ₽',
+  operator_id_invalid: 'ID оператора должен быть целым положительным числом (или оставьте пустым)',
   rule_type_invalid: 'Выберите тип правила: процент или сумма',
   rule_value_invalid: 'Укажите значение правила',
   rule_value_out_of_range: 'Значение правила вне допустимого диапазона (−90…500 % или до 10 000 000 ₽)',
@@ -666,9 +747,16 @@ export async function duplicateRoomType(id: number, body: DuplicateBody = {}): P
   return data.room_type;
 }
 
-// POST /room-types/preview-price { rule, offers: [{operator_name, meal, price}] }
-export function previewPrice(rule: RoomTypeRuleInput, offers: { operator_name?: string | null; meal?: string | null; price: number }[]): Promise<PreviewResult> {
-  return request<PreviewResult>('/room-types/preview-price', { method: 'POST', body: JSON.stringify({ rule, offers }) }, 'Не удалось рассчитать цену');
+// POST /room-types/preview-price — v2: { pricingMode, rule?, fixedPrice?, fixedPriceUnit?, offers?, nights? }
+export function previewPrice(body: PreviewPriceBody): Promise<PreviewResult> {
+  const payload: Record<string, unknown> = { pricingMode: body.pricingMode, offers: body.offers || [] };
+  if (body.pricingMode === 'rule') payload.rule = body.rule;
+  else {
+    payload.fixedPrice = body.fixedPrice;
+    payload.fixedPriceUnit = body.fixedPriceUnit || 'total';
+    if (body.nights) payload.nights = body.nights;
+  }
+  return request<PreviewResult>('/room-types/preview-price', { method: 'POST', body: JSON.stringify(payload) }, 'Не удалось рассчитать цену');
 }
 
 // GET /room-types/:id/price-log?from&to&operatorId&meal&limit
@@ -804,17 +892,31 @@ export function imageUrl(url: string | null | undefined): string {
 }
 
 /** «−10 %», «+1 500 ₽» — как ruleLabel на сервере (для списка, где label не отдаётся). */
-export function ruleLabel(rule: { ruleType: RuleType; ruleValue: number } | null | undefined): string {
-  if (!rule) return '—';
+export function ruleLabel(rule: { ruleType: RuleType | null; ruleValue: number | null } | null | undefined): string {
+  if (!rule || !rule.ruleType) return '—';
   const value = Number(rule.ruleValue) || 0;
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
   const abs = Math.abs(value);
   return rule.ruleType === 'percent' ? `${sign}${abs} %` : `${sign}${formatNumber(Math.round(abs))} ₽`;
 }
 
-/** Текст правила из слепка price-log: label с сервера, иначе собираем из type/value. */
+/** «1 ₽ (фикс.)», «1 500 ₽/ночь (фикс.)» — как pricingLabel на сервере. */
+export function fixedPriceLabel(fixedPrice: number | null | undefined, unit?: FixedPriceUnit | null): string {
+  if (fixedPrice === null || fixedPrice === undefined || !Number.isFinite(Number(fixedPrice))) return '— (фикс.)';
+  return `${formatMoney(Number(fixedPrice))}${unit === 'per_night' ? '/ночь' : ''} (фикс.)`;
+}
+
+/** Подпись цены Room Type: pricingLabel с сервера, иначе fixed → «1 ₽ (фикс.)», rule → «−10 %». */
+export function pricingLabelOf(rt: Pick<RoomType, 'pricingMode' | 'fixedPrice' | 'fixedPriceUnit' | 'rule' | 'ruleType' | 'ruleValue'> & { pricingLabel?: string | null; ruleLabel?: string | null }): string {
+  if (rt.pricingLabel) return rt.pricingLabel;
+  if (rt.pricingMode === 'fixed') return fixedPriceLabel(rt.fixedPrice, rt.fixedPriceUnit);
+  return rt.ruleLabel || ruleLabel(rt.rule || { ruleType: rt.ruleType, ruleValue: rt.ruleValue });
+}
+
+/** Текст правила из слепка price-log/заказа: label с сервера, иначе собираем из mode/fixedPrice или type/value. */
 export function snapshotLabel(rule: PriceRuleSnapshot | null | undefined): string {
   if (rule?.label) return rule.label;
+  if (rule?.mode === 'fixed') return fixedPriceLabel(rule.fixedPrice, rule.unit);
   if (rule?.type && rule.value !== undefined && rule.value !== null) return ruleLabel({ ruleType: rule.type, ruleValue: Number(rule.value) });
   return '—';
 }
@@ -851,6 +953,22 @@ export function contentFromLtRoom(room: LtRoom | null | undefined): RoomTypeCont
     facilities: Array.isArray(room?.facilities) ? room!.facilities! : [],
     images: ltRoomImages(room),
   };
+}
+
+/**
+ * Предложения-шаблоны номера, как их выберет витрина (v2): mealTypes заданы — самое дешёвое по каждому
+ * указанному питанию, иначе одно самое дешёвое предложение номера. Оператор шаблона не важен.
+ */
+export function templateOffers<T extends { meal: string; price: number }>(offers: T[], mealTypes: string[] | null | undefined): T[] {
+  const sorted = [...offers].filter((o) => Number.isFinite(Number(o.price))).sort((a, b) => Number(a.price) - Number(b.price));
+  if (!mealTypes || !mealTypes.length) return sorted.length ? [sorted[0]] : [];
+  const wanted = mealTypes.map((m) => String(m).toUpperCase());
+  const byMeal = new Map<string, T>();
+  sorted.forEach((o) => {
+    const meal = String(o.meal || '').toUpperCase();
+    if (wanted.includes(meal) && !byMeal.has(meal)) byMeal.set(meal, o);
+  });
+  return [...byMeal.values()];
 }
 
 export function facilityName(f: string | RoomFacility): string {
