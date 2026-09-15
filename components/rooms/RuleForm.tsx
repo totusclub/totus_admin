@@ -1,15 +1,28 @@
 'use client';
 
-// Правило цены и витрина (шаг 3 мастера и секция редактора): % / ₽, значение, округление, min/max,
-// минимальная маржа (глобальная / своя), бейдж, тип пакета, активность.
+// Цена и витрина (шаг 3 мастера и секция редактора). v2: переключатель режима цены —
+// «Фиксированная цена Arlekino» (₽ + за проживание / за ночь, по умолчанию) ⟷ «Правило от цены Level.Travel»
+// (% / ₽, значение, округление, min/max, минимальная маржа глобальная / своя); название оператора, бейдж, активность.
 
 import Icon from '@/components/Icon';
 import { t, radius, text, cardStyle, button } from '@/lib/theme';
 import { Field, Toggle, compactInput, checkboxRow } from '@/components/notifications/shared';
-import { formatMoney, type RoomSettings, type RoomType, type RoomTypeRuleInput, type Rounding, type RuleType } from '@/lib/rooms-api';
+import { formatMoney, type FixedPriceUnit, type PackageType, type PricingInput, type PricingMode, type RoomSettings, type RoomType, type RoomTypeRuleInput, type Rounding, type RuleType } from '@/lib/rooms-api';
 import { Segment } from './shared';
 
+export const DEFAULT_OPERATOR_NAME = 'Arlekino';
+export const FIXED_PRICE_MAX = 100000000;
+
 export interface RuleFormState {
+    /** v2: режим цены (по умолчанию fixed). */
+    pricingMode: PricingMode;
+    /** Фиксированная цена, ₽ (строка из инпута). */
+    fixedPrice: string;
+    fixedPriceUnit: FixedPriceUnit;
+    /** Название нашего оператора на витрине. */
+    operatorName: string;
+    /** true — packageTypes пустые (любой тип поиска); false — только «отель» (без перелёта). */
+    anySearch: boolean;
     ruleType: RuleType;
     ruleValue: string;
     rounding: Rounding;
@@ -24,6 +37,11 @@ export interface RuleFormState {
 
 export function defaultRuleState(settings?: RoomSettings | null): RuleFormState {
     return {
+        pricingMode: 'fixed',
+        fixedPrice: '',
+        fixedPriceUnit: 'total',
+        operatorName: DEFAULT_OPERATOR_NAME,
+        anySearch: true,
         ruleType: 'percent',
         ruleValue: '-10',
         rounding: ([1, 10, 100].includes(Number(settings?.rounding)) ? Number(settings?.rounding) : 1) as Rounding,
@@ -40,8 +58,13 @@ export function defaultRuleState(settings?: RoomSettings | null): RuleFormState 
 export function stateFromRoomType(rt: RoomType, settings?: RoomSettings | null): RuleFormState {
     const own = Boolean(rt.minMarginType) && rt.minMarginValue !== null;
     return {
-        ruleType: rt.ruleType,
-        ruleValue: String(rt.ruleValue),
+        pricingMode: rt.pricingMode === 'rule' ? 'rule' : 'fixed',
+        fixedPrice: rt.fixedPrice === null || rt.fixedPrice === undefined ? '' : String(rt.fixedPrice),
+        fixedPriceUnit: rt.fixedPriceUnit === 'per_night' ? 'per_night' : 'total',
+        operatorName: rt.operatorName || DEFAULT_OPERATOR_NAME,
+        anySearch: !(rt.packageTypes || []).length,
+        ruleType: rt.ruleType || 'percent',
+        ruleValue: rt.ruleValue === null || rt.ruleValue === undefined ? '-10' : String(rt.ruleValue),
         rounding: ([1, 10, 100].includes(Number(rt.rounding)) ? Number(rt.rounding) : 1) as Rounding,
         minPrice: rt.minPrice === null || rt.minPrice === undefined ? '' : String(rt.minPrice),
         maxPrice: rt.maxPrice === null || rt.maxPrice === undefined ? '' : String(rt.maxPrice),
@@ -69,7 +92,37 @@ export function ruleFromState(s: RuleFormState): RoomTypeRuleInput | null {
     };
 }
 
+/** Режим цены для API / preview; null — данные ещё не введены (нет фикс. цены или значения правила). */
+export function pricingFromState(s: RuleFormState): PricingInput | null {
+    if (s.pricingMode === 'fixed') {
+        const price = Number(s.fixedPrice);
+        if (s.fixedPrice.trim() === '' || !Number.isFinite(price) || price <= 0) return null;
+        return { pricingMode: 'fixed', fixedPrice: price, fixedPriceUnit: s.fixedPriceUnit };
+    }
+    const rule = ruleFromState(s);
+    return rule ? { pricingMode: 'rule', rule } : null;
+}
+
+/** Поля цены для POST/PUT /room-types: режим, фикс. цена, оператор; правило — только в режиме rule. */
+export function pricingBodyFromState(s: RuleFormState): { pricingMode: PricingMode; fixedPrice: number | null; fixedPriceUnit: FixedPriceUnit; operatorName: string; rule: RoomTypeRuleInput | null; packageTypes: PackageType[] } {
+    const price = Number(s.fixedPrice);
+    return {
+        pricingMode: s.pricingMode,
+        fixedPrice: s.fixedPrice.trim() === '' || !Number.isFinite(price) ? null : price,
+        fixedPriceUnit: s.fixedPriceUnit,
+        operatorName: s.operatorName.trim() || DEFAULT_OPERATOR_NAME,
+        rule: s.pricingMode === 'rule' ? ruleFromState(s) : null,
+        packageTypes: s.anySearch ? [] : ['hotel'],
+    };
+}
+
 export function validateRuleState(s: RuleFormState): string | null {
+    if (s.pricingMode === 'fixed') {
+        const price = Number(s.fixedPrice);
+        if (s.fixedPrice.trim() === '' || !Number.isFinite(price) || price <= 0) return 'Укажите фиксированную цену больше нуля';
+        if (price > FIXED_PRICE_MAX) return 'Фиксированная цена не может быть больше 100 000 000 ₽';
+        return null;
+    }
     const rule = ruleFromState(s);
     if (!rule) return 'Укажите значение правила цены';
     if (rule.ruleType === 'percent' && (rule.ruleValue < -90 || rule.ruleValue > 500)) return 'Процент должен быть от −90 до 500';
@@ -92,79 +145,138 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
     const unit = value.ruleType === 'percent' ? '%' : '₽';
     const stepper = { ...button('secondary', 'md'), width: 42, padding: 0 };
 
+    const fixed = value.pricingMode === 'fixed';
+    const operator = value.operatorName.trim() || DEFAULT_OPERATOR_NAME;
+
     return (
         <div style={{ display: 'grid', gap: 16 }}>
             <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
-                <div style={text.cardTitle}>Правило цены</div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <Field label="Тип правила">
-                        <Segment<RuleType> options={[{ value: 'percent', label: 'Процент %' }, { value: 'absolute', label: 'Сумма ₽' }]} value={value.ruleType} onChange={(v) => set('ruleType', v)} />
-                    </Field>
-                    <Field label="Значение" hint={value.ruleType === 'percent' ? '−90…500' : '± ₽ к цене LT'}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <button type="button" onClick={() => bump(-1)} aria-label="Уменьшить" style={stepper}><Icon name="minus" size={16} /></button>
-                            <div style={{ position: 'relative', width: 140 }}>
-                                <input type="number" step={value.ruleType === 'percent' ? 0.5 : 100} style={{ ...compactInput, textAlign: 'center', fontWeight: 700, paddingRight: 28 }} value={value.ruleValue} onChange={(e) => set('ruleValue', e.target.value)} />
-                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: t.textTertiary, fontSize: 13 }}>{unit}</span>
+                <div>
+                    <div style={text.cardTitle}>Как считается цена</div>
+                    <div style={text.caption}>Наше предложение {operator} появится у выбранного номера при любых датах и составе гостей</div>
+                </div>
+                <Segment<PricingMode>
+                    fullWidth
+                    options={[
+                        { value: 'fixed', label: `Фиксированная цена ${operator}` },
+                        { value: 'rule', label: 'Правило от цены Level.Travel' },
+                    ]}
+                    value={value.pricingMode}
+                    onChange={(v) => set('pricingMode', v)}
+                />
+                {fixed ? (
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <Field label="Цена" hint="₽, больше нуля">
+                            <div style={{ position: 'relative', width: 180 }}>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    style={{ ...compactInput, fontWeight: 700, paddingRight: 28 }}
+                                    value={value.fixedPrice}
+                                    onChange={(e) => set('fixedPrice', e.target.value)}
+                                    placeholder="1"
+                                />
+                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: t.textTertiary, fontSize: 13 }}>₽</span>
                             </div>
-                            <button type="button" onClick={() => bump(1)} aria-label="Увеличить" style={stepper}><Icon name="plus" size={16} /></button>
-                        </div>
-                    </Field>
-                </div>
-                <Field label="Округление">
-                    <Segment<Rounding> fullWidth options={[{ value: 1, label: '1 ₽' }, { value: 10, label: '10 ₽' }, { value: 100, label: '100 ₽' }]} value={value.rounding} onChange={(v) => set('rounding', v)} />
-                </Field>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Field label="Мин. цена">
-                        <input type="number" min={0} style={compactInput} value={value.minPrice} onChange={(e) => set('minPrice', e.target.value)} placeholder="Не задана" />
-                    </Field>
-                    <Field label="Макс. цена">
-                        <input type="number" min={0} style={compactInput} value={value.maxPrice} onChange={(e) => set('maxPrice', e.target.value)} placeholder="Не задана" />
-                    </Field>
-                </div>
-
-                <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 14, display: 'grid', gap: 10 }}>
-                    <div>
-                        <div style={text.cardTitle}>Минимальная маржа</div>
-                        <div style={text.caption}>Ниже порога цена поднимается автоматически, комната помечается «Маржа ограничена»</div>
-                    </div>
-                    <Segment<'global' | 'own'>
-                        fullWidth
-                        options={[
-                            { value: 'global', label: `Глобальная (${globalMarginLabel(settings)})` },
-                            { value: 'own', label: 'Своя' },
-                        ]}
-                        value={value.marginMode}
-                        onChange={(v) => set('marginMode', v)}
-                    />
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', opacity: value.marginMode === 'own' ? 1 : 0.5 }}>
-                        <Field label="Единицы">
-                            <Segment<RuleType> disabled={value.marginMode !== 'own'} options={[{ value: 'percent', label: '%' }, { value: 'absolute', label: '₽' }]} value={value.marginType} onChange={(v) => set('marginType', v)} />
                         </Field>
-                        <div style={{ flex: 1 }}>
-                            <Field label="Значение" hint="N ≥ 0 — допустимая субсидия">
-                                <input type="number" disabled={value.marginMode !== 'own'} style={compactInput} value={value.marginValue} onChange={(e) => set('marginValue', e.target.value)} placeholder={value.marginType === 'percent' ? '15' : '5000'} />
+                        <Field label="Единица">
+                            <div role="radiogroup" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', paddingTop: 6 }}>
+                                <label style={checkboxRow}>
+                                    <input type="radio" name="fixedPriceUnit" checked={value.fixedPriceUnit === 'total'} onChange={() => set('fixedPriceUnit', 'total')} />
+                                    за проживание
+                                </label>
+                                <label style={checkboxRow}>
+                                    <input type="radio" name="fixedPriceUnit" checked={value.fixedPriceUnit === 'per_night'} onChange={() => set('fixedPriceUnit', 'per_night')} />
+                                    за ночь
+                                </label>
+                            </div>
+                        </Field>
+                        <div style={{ ...text.caption, flexBasis: '100%' }}>
+                            Цена не зависит от цены Level.Travel: {value.fixedPriceUnit === 'per_night' ? 'умножается на число ночей предложения' : 'одна сумма за всё проживание'}. Минимальная маржа и округление не применяются.
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+
+            {!fixed ? (
+                <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
+                    <div style={text.cardTitle}>Правило цены</div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <Field label="Тип правила">
+                            <Segment<RuleType> options={[{ value: 'percent', label: 'Процент %' }, { value: 'absolute', label: 'Сумма ₽' }]} value={value.ruleType} onChange={(v) => set('ruleType', v)} />
+                        </Field>
+                        <Field label="Значение" hint={value.ruleType === 'percent' ? '−90…500' : '± ₽ к цене LT'}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button type="button" onClick={() => bump(-1)} aria-label="Уменьшить" style={stepper}><Icon name="minus" size={16} /></button>
+                                <div style={{ position: 'relative', width: 140 }}>
+                                    <input type="number" step={value.ruleType === 'percent' ? 0.5 : 100} style={{ ...compactInput, textAlign: 'center', fontWeight: 700, paddingRight: 28 }} value={value.ruleValue} onChange={(e) => set('ruleValue', e.target.value)} />
+                                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: t.textTertiary, fontSize: 13 }}>{unit}</span>
+                                </div>
+                                <button type="button" onClick={() => bump(1)} aria-label="Увеличить" style={stepper}><Icon name="plus" size={16} /></button>
+                            </div>
+                        </Field>
+                    </div>
+                    <Field label="Округление">
+                        <Segment<Rounding> fullWidth options={[{ value: 1, label: '1 ₽' }, { value: 10, label: '10 ₽' }, { value: 100, label: '100 ₽' }]} value={value.rounding} onChange={(v) => set('rounding', v)} />
+                    </Field>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <Field label="Мин. цена">
+                            <input type="number" min={0} style={compactInput} value={value.minPrice} onChange={(e) => set('minPrice', e.target.value)} placeholder="Не задана" />
+                        </Field>
+                        <Field label="Макс. цена">
+                            <input type="number" min={0} style={compactInput} value={value.maxPrice} onChange={(e) => set('maxPrice', e.target.value)} placeholder="Не задана" />
+                        </Field>
+                    </div>
+
+                    <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 14, display: 'grid', gap: 10 }}>
+                        <div>
+                            <div style={text.cardTitle}>Минимальная маржа</div>
+                            <div style={text.caption}>Ниже порога цена поднимается автоматически, комната помечается «Маржа ограничена»</div>
+                        </div>
+                        <Segment<'global' | 'own'>
+                            fullWidth
+                            options={[
+                                { value: 'global', label: `Глобальная (${globalMarginLabel(settings)})` },
+                                { value: 'own', label: 'Своя' },
+                            ]}
+                            value={value.marginMode}
+                            onChange={(v) => set('marginMode', v)}
+                        />
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', opacity: value.marginMode === 'own' ? 1 : 0.5 }}>
+                            <Field label="Единицы">
+                                <Segment<RuleType> disabled={value.marginMode !== 'own'} options={[{ value: 'percent', label: '%' }, { value: 'absolute', label: '₽' }]} value={value.marginType} onChange={(v) => set('marginType', v)} />
                             </Field>
+                            <div style={{ flex: 1 }}>
+                                <Field label="Значение" hint="N ≥ 0 — допустимая субсидия">
+                                    <input type="number" disabled={value.marginMode !== 'own'} style={compactInput} value={value.marginValue} onChange={(e) => set('marginValue', e.target.value)} placeholder={value.marginType === 'percent' ? '15' : '5000'} />
+                                </Field>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            ) : null}
 
             <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
                 <div style={text.cardTitle}>Витрина</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <Field label="Название оператора" hint="так наше предложение подписано на витрине">
+                        <input style={compactInput} value={value.operatorName} onChange={(e) => set('operatorName', e.target.value)} maxLength={128} placeholder={DEFAULT_OPERATOR_NAME} />
+                    </Field>
                     <Field label="Бейдж" hint="служебная пометка, на витрине не показывается">
                         <input style={compactInput} value={value.badge} onChange={(e) => set('badge', e.target.value)} maxLength={64} placeholder="Totus" />
                     </Field>
-                    <Field label="Показывать при типе пакета">
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <Field label="Показывать при типе поиска" hint="глобально ограничить отелями можно в настройках">
                         <div style={{ display: 'grid', gap: 6, paddingTop: 4 }}>
                             <label style={checkboxRow}>
-                                <input type="checkbox" checked readOnly />
-                                Отель (без перелёта)
+                                <input type="radio" name="anySearch" checked={value.anySearch} onChange={() => set('anySearch', true)} />
+                                Любой (отель и тур с перелётом)
                             </label>
-                            <label style={{ ...checkboxRow, color: t.textDisabled, cursor: 'not-allowed' }}>
-                                <input type="checkbox" checked={false} disabled readOnly />
-                                Тур с перелётом — недоступно
+                            <label style={checkboxRow}>
+                                <input type="radio" name="anySearch" checked={!value.anySearch} onChange={() => set('anySearch', false)} />
+                                Только отель (без перелёта)
                             </label>
                         </div>
                     </Field>
@@ -172,7 +284,7 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: radius.sm, background: t.surfaceInset }}>
                     <div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>Активность</div>
-                        <div style={text.caption}>Показывать на витрине вместо выбранных предложений</div>
+                        <div style={text.caption}>Показывать на витрине у выбранного номера Level.Travel</div>
                     </div>
                     <Toggle checked={value.active} onChange={(v) => set('active', v)} label="Активность" />
                 </div>

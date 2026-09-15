@@ -118,7 +118,7 @@ function EditorContent() {
                             <BrandBadge label={roomType.badge} />
                             <h1 style={{ ...text.pageTitle, fontSize: 28, lineHeight: '36px', margin: 0 }}>{roomType.content?.nameRu}</h1>
                             <span style={{ ...text.body, color: t.textSecondary }}>
-                                правило {roomTypeLabel(roomType)} · {roomType.operatorNames?.join(', ') || 'оператор'} · на основе «{roomType.sourceRoomName || roomType.sourceRoomId}»
+                                {roomType.pricingMode === 'fixed' ? 'цена' : 'правило'} {roomTypeLabel(roomType)} · {roomType.operatorName || 'Arlekino'} · у номера «{roomType.sourceRoomName || roomType.sourceRoomId}»
                             </span>
                         </div>
                         <RoomTypeEditor

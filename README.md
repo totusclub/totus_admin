@@ -54,7 +54,7 @@ npm run build && npm run start
 - `/api/content/upload-image` — загрузка картинок из редактора
 - `/user/orders?user_id=` , `/orders?order_id=`, `/orders/documents?order_id=`
 - `/client/orders`, `/client/orders/:id` — прокси к Level Travel
-- `/api/admin/rooms/*` — наши Room Type (поиск отелей/номеров LT, room-types CRUD, preview-price, price-log, images, settings); требует миграции `custom_rooms` и подключения роутов в `app.js` на сервере, иначе `503 custom_rooms_not_migrated`
+- `/api/admin/rooms/*` — наши Room Type (поиск отелей/номеров LT, room-types CRUD, preview-price, price-log, images, settings; v2 — `pricingMode: fixed|rule`, `fixedPrice`, `fixedPriceUnit`, `operatorName`, наши Room Type под номером всегда); требует миграции `custom_rooms` и подключения роутов в `app.js` на сервере, иначе `503 custom_rooms_not_migrated`
 - `/api/admin/rooms/bookings/*` — бронирования наших Room Type без Level.Travel (список + сводка, карточка, `confirm`, `reject`, `cancel`, `refund-done`, `comment`, `voucher` multipart PDF ≤ 10 МБ, `resend-voucher`); заказ хранится только в Totus, возврат денег — вручную (сотрудник отмечает выполнение), автоотклонения по таймеру нет
 
 **voip** (`NEXT_PUBLIC_VOIP_API_URL`):

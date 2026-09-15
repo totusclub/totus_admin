@@ -7,13 +7,14 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import { t, radius, text, button, badge } from '@/lib/theme';
 import type { BadgeTone } from '@/components/notifications/shared';
-import { formatMoney, ruleLabel, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
+import { formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
 
 /* ── Справочники ──────────────────────────────────────────────────────── */
 
 export type ListStatus = RoomTypeStatus | 'never_seen';
 
 export const STATUS_META: Record<ListStatus, { label: string; tone: BadgeTone }> = {
+    fixed: { label: 'Активен · фикс. цена', tone: 'success' },
     replacing: { label: 'Активен', tone: 'success' },
     inactive: { label: 'Выкл', tone: 'neutral' },
     source_missing: { label: 'Источник не найден', tone: 'warning' },
@@ -29,15 +30,18 @@ export const STATUS_META: Record<ListStatus, { label: string; tone: BadgeTone }>
 export function roomTypeStatus(rt: RoomType): ListStatus {
     if (!rt.active) return 'inactive';
     if (rt.status) return rt.status;
-    if (rt.last?.marginClamped) return 'margin_clamped';
     if (!rt.last?.seenAt) return 'never_seen';
+    if (rt.pricingMode === 'fixed') return 'fixed';
+    if (rt.last?.marginClamped) return 'margin_clamped';
     return 'replacing';
 }
 
 /** Подпись статуса на карточке под номером. */
 export function statusText(rt: RoomType): string {
     const status = roomTypeStatus(rt);
-    if (status === 'replacing') return `Показывается вместо предложения ${rt.operatorNames?.[0] || 'оператора'}`;
+    const replaces = rt.operatorIds?.length ? ` · замещает предложения ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператора ${rt.operatorIds.join(', ')}`}` : '';
+    if (status === 'fixed') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · фиксированная цена${replaces}`;
+    if (status === 'replacing') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · цена по правилу${replaces}`;
     if (status === 'source_missing') return 'Источник не найден на эти даты';
     if (status === 'margin_clamped') return 'Маржа ограничена минимальным порогом';
     if (status === 'never_seen') return 'Ещё не показывался на витрине';
@@ -68,8 +72,14 @@ export function plural(n: number, one: string, few: string, many: string): strin
     return many;
 }
 
+/** «1 ₽ (фикс.)» / «1 500 ₽/ночь (фикс.)» / «−10 %». */
 export function roomTypeLabel(rt: RoomType): string {
-    return rt.ruleLabel || ruleLabel(rt.rule || { ruleType: rt.ruleType, ruleValue: rt.ruleValue });
+    return pricingLabelOf(rt);
+}
+
+/** Как считается цена — для колонок/чипов: «фикс.» / «правило». */
+export function pricingModeLabel(rt: Pick<RoomType, 'pricingMode'>): string {
+    return rt.pricingMode === 'fixed' ? 'Фиксированная цена' : 'Правило от цены Level.Travel';
 }
 
 /* ── Даты ─────────────────────────────────────────────────────────────── */
@@ -139,19 +149,24 @@ export function timeAgo(value?: string | null): string {
 /** Текст записи истории правок из `changes` JSON. */
 export function describeChange(item: ChangeLogItem): string {
     const c = item.changes || {};
-    if (c.created) return `создан · правило ${String(c.rule || '')}${Array.isArray(c.operators) ? ` · операторы ${(c.operators as unknown[]).join(', ')}` : ''}`;
+    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · замещает операторов ${(c.operators as unknown[]).join(', ')}` : ''}`;
     if (c.deleted) return `удалён${c.name ? ` («${String(c.name)}»)` : ''}`;
     if (c.duplicatedFrom) return `создан как копия Room Type #${String(c.duplicatedFrom)}`;
     const names: Record<string, string> = {
         ruleType: 'тип правила', ruleValue: 'значение правила', rounding: 'округление', minPrice: 'мин. цена', maxPrice: 'макс. цена',
         minMarginType: 'тип мин. маржи', minMarginValue: 'мин. маржа', badge: 'бейдж', active: 'активность', sortOrder: 'порядок',
-        packageTypes: 'тип пакета', operatorIds: 'операторы', mealTypes: 'питание',
+        packageTypes: 'тип пакета', operatorIds: 'замещаемые операторы', mealTypes: 'питание',
+        pricingMode: 'режим цены', fixedPrice: 'фиксированная цена', fixedPriceUnit: 'единица фикс. цены', operatorName: 'название оператора', operatorId: 'ID оператора',
         'content.nameRu': 'название RU', 'content.nameEn': 'название EN', 'content.accommodation': 'размещение', 'content.area': 'площадь',
         'content.view': 'вид', 'content.description': 'описание', 'content.facilities': 'удобства', 'content.images': 'фотографии',
     };
     const fmt = (v: unknown): string => {
         if (v === null || v === undefined || v === '') return '—';
         if (typeof v === 'boolean') return v ? 'вкл' : 'выкл';
+        if (v === 'fixed') return 'фиксированная';
+        if (v === 'rule') return 'правило';
+        if (v === 'per_night') return 'за ночь';
+        if (v === 'total') return 'за проживание';
         if (Array.isArray(v)) return v.length > 3 ? `${v.length} эл.` : v.map((x) => (typeof x === 'object' ? (x as { name?: string })?.name || '…' : String(x))).join(', ');
         if (typeof v === 'object') return '…';
         const s = String(v);
@@ -376,15 +391,15 @@ export function Spinner({ label }: { label?: string }) {
     );
 }
 
-/** Строка «Провайдер 96 500 ₽ → Наша 86 850 ₽ · Маржа −9 650 ₽». */
-export function PricePair({ provider, final, margin, compact }: { provider: number | null | undefined; final: number | null | undefined; margin?: number | null; compact?: boolean }) {
+/** Строка «Провайдер 96 500 ₽ → Наша 86 850 ₽ · Маржа −9 650 ₽»; v2 fixed — «Наша 1 ₽ (фикс.)». */
+export function PricePair({ provider, final, margin, compact, fixed, perNight }: { provider: number | null | undefined; final: number | null | undefined; margin?: number | null; compact?: boolean; fixed?: boolean; perNight?: boolean }) {
     const m = margin === undefined ? (provider != null && final != null ? final - provider : null) : margin;
     return (
         <div style={{ textAlign: 'right', minWidth: compact ? 0 : 200 }}>
             <div style={{ fontSize: compact ? 13 : 14, color: t.textSecondary, whiteSpace: 'nowrap' }}>
-                Провайдер <span style={{ color: t.textPrimary }}>{formatMoney(provider)}</span>
+                {fixed ? 'Цена LT' : 'Провайдер'} <span style={{ color: t.textPrimary }}>{formatMoney(provider)}</span>
                 <span style={{ margin: '0 6px', color: t.textTertiary }}>→</span>
-                <span style={{ fontWeight: 700, color: t.textPrimary, fontSize: compact ? 14 : 16 }}>Наша {formatMoney(final)}</span>
+                <span style={{ fontWeight: 700, color: t.textPrimary, fontSize: compact ? 14 : 16 }}>Наша {formatMoney(final)}{fixed ? `${perNight ? '/ночь' : ''} (фикс.)` : ''}</span>
             </div>
             <div style={{ fontSize: 12, marginTop: 2, color: m == null ? t.textTertiary : m < 0 ? t.error : t.success, whiteSpace: 'nowrap' }}>
                 Маржа {formatMoney(m, true)}

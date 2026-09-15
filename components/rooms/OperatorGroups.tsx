@@ -1,6 +1,8 @@
 'use client';
 
 // Вкладка «Номера Level.Travel»: группы по оператору → номера LT → наши Room Type под номером.
+// v2: наши Room Type видны под номером всегда (rooms[].room_types / operators[].rooms[].room_types из ответа),
+// даже если предложения оператора Arlekino у LT нет.
 
 import { useState, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
@@ -10,9 +12,17 @@ import RoomCardLT from './RoomCardLT';
 import RoomTypeCard from './RoomTypeCard';
 import { Empty, plural } from './shared';
 
-/** Наши Room Type под номером оператора: источник = этот номер и оператор входит в operatorIds. */
+/**
+ * Наши Room Type под номером: по `room_types` номера из ответа (v2: сервер отдаёт их всегда, когда номер в выдаче;
+ * в группе оператора — без ограничения операторов или с этим оператором). Fallback — по sourceRoomId.
+ */
 export function roomTypesFor(result: HotelRoomsResult, room: OperatorRoom, operatorId: number): RoomType[] {
-    return (result.room_types || []).filter((rt) => Number(rt.sourceRoomId) === Number(room.room_id) && (rt.operatorIds || []).map(Number).includes(Number(operatorId)));
+    const all = result.room_types || [];
+    const ids = Array.isArray(room.room_types) && room.room_types.length
+        ? room.room_types.map(Number)
+        : ((result.rooms || []).find((r) => Number(r.room?.id) === Number(room.room_id))?.room_types || []).map(Number);
+    if (ids.length) return all.filter((rt) => ids.includes(Number(rt.id)));
+    return all.filter((rt) => Number(rt.sourceRoomId) === Number(room.room_id) && (!(rt.operatorIds || []).length || (rt.operatorIds || []).map(Number).includes(Number(operatorId))));
 }
 
 function GroupHeader({ group, open, onToggle }: { group: OperatorGroup; open: boolean; onToggle: () => void }) {

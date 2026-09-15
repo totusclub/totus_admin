@@ -1,11 +1,12 @@
 'use client';
 
-// Модал «Дублировать Room Type» → POST /room-types/:id/duplicate (копия создаётся выключенной).
+// Модал «Дублировать Room Type» → POST /room-types/:id/duplicate (копия создаётся выключенной;
+// v2: режим цены, фиксированная цена и оператор копируются на сервере всегда).
 
 import { useState } from 'react';
-import { button } from '@/lib/theme';
+import { button, text } from '@/lib/theme';
 import { Modal, Field, ErrorBox, compactInput, checkboxRow } from '@/components/notifications/shared';
-import { duplicateRoomType, type RoomType } from '@/lib/rooms-api';
+import { duplicateRoomType, pricingLabelOf, type RoomType } from '@/lib/rooms-api';
 
 export default function DuplicateDialog({
     roomType,
@@ -47,10 +48,15 @@ export default function DuplicateDialog({
                     <input type="checkbox" checked={copyContent} onChange={(e) => setCopyContent(e.target.checked)} />
                     Скопировать контент (иначе — исходный контент Level.Travel)
                 </label>
-                <label style={checkboxRow}>
-                    <input type="checkbox" checked={copyRule} onChange={(e) => setCopyRule(e.target.checked)} />
-                    Скопировать правило цены (иначе — 0 %)
-                </label>
+                <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={checkboxRow}>
+                        <input type="checkbox" checked={copyRule} onChange={(e) => setCopyRule(e.target.checked)} />
+                        Скопировать правило цены Level.Travel (иначе — 0 %)
+                    </label>
+                    <div style={text.caption}>
+                        Режим цены «{pricingLabelOf(roomType)}», фиксированная цена и оператор {roomType.operatorName || 'Arlekino'} копируются всегда; номер-источник, ограничения операторов/питания — те же.
+                    </div>
+                </div>
                 <Field label="Фотографии">
                     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                         <label style={checkboxRow}>
