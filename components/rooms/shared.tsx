@@ -227,7 +227,7 @@ export function useDebounced<T>(value: T, delay = 400): T {
     return debounced;
 }
 
-/* ── Примитивы ──────────────────────────────────────────────────────────── */
+/* ── Примитивы ────────────────────────────────────────────────────────── */
 
 export function Stars({ count, size = 14 }: { count: number; size?: number }) {
     const n = Math.max(0, Math.min(5, Math.round(count)));
@@ -443,7 +443,7 @@ export function PricePair({ provider, final, margin, compact, fixed, perNight }:
     );
 }
 
-/* ── Таблицы ────────────────────────────────────────────────────────────── */
+/* ── Таблицы ──────────────────────────────────────────────────────────── */
 
 export const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 export const thStyle: CSSProperties = {
