@@ -2,16 +2,17 @@
 
 // Редактор Room Type одной страницей: якоря Источник / Контент / Цена / История правок,
 // справа live-preview; действия «Сохранить» (PUT), «Дублировать», «Сбросить контент к оригиналу», «Удалить».
+// v2: режим цены fixed/rule, название оператора; ограничение операторов (замещение) можно снять, питание — сузить.
 
 import { useEffect, useMemo, useState } from 'react';
 import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
 import { ErrorBox, SuccessBox, StatusBadge } from '@/components/notifications/shared';
 import {
-    updateRoomType, deleteRoomType, getChangeLog, contentFromLtRoom, ltRoomImages, formatMoney,
+    updateRoomType, deleteRoomType, getChangeLog, contentFromLtRoom, ltRoomImages, formatMoney, templateOffers,
     type ChangeLogItem, type LtOffer, type RoomSettings, type RoomType, type RoomTypeContent,
 } from '@/lib/rooms-api';
 import ContentForm from './ContentForm';
-import RuleForm, { ruleFromState, stateFromRoomType, validateRuleState, type RuleFormState } from './RuleForm';
+import RuleForm, { DEFAULT_OPERATOR_NAME, pricingFromState, pricingBodyFromState, stateFromRoomType, validateRuleState, type RuleFormState } from './RuleForm';
 import PricePreview from './PricePreview';
 import DuplicateDialog from './DuplicateDialog';
 import { ChangeLogList } from './PriceHistory';
@@ -48,6 +49,8 @@ export default function RoomTypeEditor({
     const [content, setContent] = useState<RoomTypeContent>(roomType.content);
     const [rule, setRule] = useState<RuleFormState>(() => stateFromRoomType(roomType, settings));
     const [mealTypes, setMealTypes] = useState<string[] | null>(roomType.mealTypes);
+    // v2: замещаемые операторы — можно снять ограничение (пусто = не ограничивать).
+    const [operatorIds, setOperatorIds] = useState<number[]>((roomType.operatorIds || []).map(Number));
     const [changes, setChanges] = useState<ChangeLogItem[]>([]);
     const [changesLoading, setChangesLoading] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -60,6 +63,7 @@ export default function RoomTypeEditor({
         setContent(roomType.content);
         setRule(stateFromRoomType(roomType, settings));
         setMealTypes(roomType.mealTypes);
+        setOperatorIds((roomType.operatorIds || []).map(Number));
     }, [roomType, settings]);
 
     useEffect(() => {
@@ -71,23 +75,27 @@ export default function RoomTypeEditor({
     }, [roomType.id]);
 
     const ltImages = useMemo(() => ltRoomImages(roomType.sourceSnapshot), [roomType.sourceSnapshot]);
-    const ruleInput = ruleFromState(rule);
-    const operatorIds = (roomType.operatorIds || []).map(Number);
+    const pricing = pricingFromState(rule);
+    const ourOperator = rule.operatorName.trim() || DEFAULT_OPERATOR_NAME;
 
-    // Предложения для preview: актуальные из выдачи (по операторам и питанию), иначе последняя виденная цена.
-    const sourceOffers = useMemo(() => (offers || []).filter((o) => operatorIds.includes(Number(o.operator_id))), [offers, operatorIds]);
+    // Предложения для preview: шаблоны из актуальной выдачи (самое дешёвое по питанию, оператор не важен),
+    // иначе последняя виденная цена.
+    const sourceOffers = useMemo(() => offers || [], [offers]);
     const knownMeals = useMemo(() => [...new Set([...(sourceOffers.map((o) => o.meal)), ...(roomType.mealTypes || [])])], [sourceOffers, roomType.mealTypes]);
     const previewOffers = useMemo(() => {
-        const list = sourceOffers.filter((o) => !mealTypes || mealTypes.includes(o.meal)).map((o) => ({ operator_name: o.operator_name, meal: o.meal, price: Number(o.price) }));
+        const list = templateOffers(sourceOffers, mealTypes).map((o) => ({ operator_name: o.operator_name, meal: o.meal, price: Number(o.price), nights_count: o.nights_count || nights || null }));
         if (list.length) return list;
-        if (roomType.last?.providerPrice) return [{ operator_name: roomType.last.operator, meal: null, price: roomType.last.providerPrice }];
+        if (roomType.last?.providerPrice) return [{ operator_name: roomType.last.operator, meal: null, price: roomType.last.providerPrice, nights_count: nights || null }];
         return [];
-    }, [sourceOffers, mealTypes, roomType.last]);
+    }, [sourceOffers, mealTypes, roomType.last, nights]);
 
     const toggleMeal = (meal: string) => {
         const current = mealTypes || knownMeals;
         const next = current.includes(meal) ? current.filter((m) => m !== meal) : [...current, meal];
-        if (!next.length) return;
+        if (!next.length) {
+            setMealTypes(null);
+            return;
+        }
         setMealTypes(knownMeals.length && next.length >= knownMeals.length && knownMeals.every((m) => next.includes(m)) ? null : next);
     };
 
@@ -99,18 +107,24 @@ export default function RoomTypeEditor({
             return;
         }
         const problem = validateRuleState(rule);
-        if (problem || !ruleInput) {
-            setError(problem || 'Проверьте правило цены');
+        if (problem || !pricing) {
+            setError(problem || 'Проверьте цену');
             return;
         }
         setBusy(true);
         try {
+            const body = pricingBodyFromState(rule);
             const next = await updateRoomType(roomType.id, {
                 operatorIds,
-                operatorNames: roomType.operatorNames,
+                operatorNames: operatorIds.length ? roomType.operatorNames : [],
                 mealTypes,
                 content: { ...content, nameRu: content.nameRu.trim() },
-                rule: ruleInput,
+                pricingMode: body.pricingMode,
+                fixedPrice: body.fixedPrice,
+                fixedPriceUnit: body.fixedPriceUnit,
+                operatorName: body.operatorName,
+                rule: body.rule || undefined,
+                packageTypes: body.packageTypes,
                 badge: rule.badge.trim() || settings?.badge || 'Totus',
                 active: rule.active,
             });
@@ -184,12 +198,24 @@ export default function RoomTypeEditor({
                             <span style={{ color: t.textPrimary }}>
                                 {snapshotName} <span style={text.caption}>· id {roomType.sourceRoomId}{roomType.sourceSnapshot ? ` · ${roomMeta(roomType.sourceSnapshot)}` : ''}</span>
                             </span>
-                            <span style={{ color: t.textTertiary }}>Операторы</span>
-                            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {(roomType.operatorNames?.length ? roomType.operatorNames : operatorIds.map(String)).map((name) => (
-                                    <span key={name} style={badge('info')}>{name}</span>
-                                ))}
-                                <span style={text.caption}>— задаются при создании; для другого оператора создайте Room Type заново</span>
+                            <span style={{ color: t.textTertiary }}>Наш оператор</span>
+                            <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span style={badge('accent')}>{ourOperator}</span>
+                                <span style={text.caption}>показывается у номера при любых датах и составе гостей · название меняется в разделе «Цена»</span>
+                            </span>
+                            <span style={{ color: t.textTertiary }}>Замещает операторов</span>
+                            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                {operatorIds.length ? (
+                                    <>
+                                        {(roomType.operatorNames?.length ? roomType.operatorNames : operatorIds.map(String)).map((name) => (
+                                            <span key={name} style={badge('info')}>{name}</span>
+                                        ))}
+                                        <span style={text.caption}>— их предложения убираются у номера, чтобы {ourOperator} не дублировался</span>
+                                        <button type="button" onClick={() => setOperatorIds([])} style={button('tertiary', 'sm')}>не ограничивать</button>
+                                    </>
+                                ) : (
+                                    <span style={text.body}>не ограничено — предложения всех операторов у номера остаются</span>
+                                )}
                             </span>
                             <span style={{ color: t.textTertiary }}>Питание</span>
                             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -198,7 +224,7 @@ export default function RoomTypeEditor({
                                         <Chip key={m} active={!mealTypes || mealTypes.includes(m)} onClick={() => toggleMeal(m)} title={mealLabel(m)}>{m}</Chip>
                                     ))
                                 ) : (
-                                    <span style={text.body}>все типы питания источника</span>
+                                    <span style={text.body}>самое дешёвое питание номера</span>
                                 )}
                                 {mealTypes ? <button type="button" onClick={() => setMealTypes(null)} style={button('tertiary', 'sm')}>все</button> : null}
                             </span>
@@ -231,12 +257,12 @@ export default function RoomTypeEditor({
 
                 <div style={{ position: 'sticky', top: 16 }}>
                     <PricePreview
-                        rule={ruleInput}
+                        pricing={pricing}
                         offers={previewOffers}
                         settings={settings}
                         subtitle={sourceOffers.length ? searchSummary : roomType.last?.seenAt ? `по последней виденной цене · ${formatDateTime(roomType.last.seenAt)}` : undefined}
                         nights={nights}
-                        userCard={{ name: content.nameRu, meta: roomMeta({ ...(roomType.sourceSnapshot || {}), id: roomType.sourceRoomId, area: content.area ?? undefined, view: content.view ?? undefined, accommodation: content.accommodation ?? undefined }), photo: content.images[0]?.url, sourceName: snapshotName, operator: roomType.operatorNames?.join(', ') }}
+                        userCard={{ name: content.nameRu, meta: roomMeta({ ...(roomType.sourceSnapshot || {}), id: roomType.sourceRoomId, area: content.area ?? undefined, view: content.view ?? undefined, accommodation: content.accommodation ?? undefined }), photo: content.images[0]?.url, sourceName: snapshotName, operator: ourOperator }}
                     />
                 </div>
             </div>
