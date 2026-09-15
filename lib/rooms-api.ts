@@ -11,7 +11,7 @@ import { API_BASE_URL } from './server';
 
 const BASE = `${API_BASE_URL}/api/admin/rooms`;
 
-/* ── Типы ───────────────────────────────────────────────────────────────────── */
+/* ── Типы ─────────────────────────────────────────────────────────────── */
 
 export type RuleType = 'percent' | 'absolute';
 export type Rounding = 1 | 10 | 100;
@@ -477,7 +477,7 @@ export interface PreviewResult {
   rows: PreviewRow[];
 }
 
-/* ── Бронирования наших Room Type (без Level.Travel) ──────────────────────── */
+/* ── Бронирования наших Room Type (без Level.Travel) ──────────────────── */
 // Контракт: docs/CUSTOM_ROOMS_API.md §6 в totus_API (`/api/admin/rooms/bookings/*`).
 
 export type BookingStatus = 'pending_payment' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'cancelled';
@@ -637,7 +637,7 @@ export const BOOKING_REJECT_REASONS: { value: BookingRejectReason; label: string
   { value: 'other', label: 'Другое' },
 ];
 
-/* ── Ошибки ─────────────────────────────────────────────────────────────────── */
+/* ── Ошибки ───────────────────────────────────────────────────────────── */
 
 export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
   custom_rooms_not_migrated: 'Модуль Room Type не настроен на сервере (миграция)',
@@ -748,7 +748,7 @@ function qs(params: object): string {
   return s ? `?${s}` : '';
 }
 
-/* ── Отели и номера Level.Travel ────────────────────────────────────────────── */
+/* ── Отели и номера Level.Travel ──────────────────────────────────────── */
 
 // GET /hotels/search — enqueue + ожидание + grouped hotels (+ totus_room_types).
 // Повторный вызов с request_id — без нового поиска (фильтры/страница применяются к той же выдаче).
@@ -761,7 +761,7 @@ export function getHotelRooms(hotelId: number, requestId: string): Promise<Hotel
   return request<HotelRoomsResult>(`/hotels/${hotelId}/rooms${qs({ request_id: requestId })}`, {}, 'Не удалось загрузить номера отеля');
 }
 
-/* ── Room Type ────────────────────────────────────────────────────────────── */
+/* ── Room Type ────────────────────────────────────────────────────────── */
 
 // GET /room-types?hotel_id&active=1|0&q → { room_types, settings }
 export function listRoomTypes(params: { hotelId?: number | string; active?: boolean; q?: string } = {}): Promise<{ room_types: RoomType[]; settings: RoomSettings }> {
@@ -841,7 +841,7 @@ export async function getRoomTypeOrders(id: number, limit?: number): Promise<Roo
   return data.items || [];
 }
 
-/* ── Фото ───────────────────────────────────────────────────────────────────── */
+/* ── Фото ─────────────────────────────────────────────────────────────── */
 
 // POST /images (multipart `image`, до 15 МБ, jpeg/png/webp) → { image: {source:'upload', url} }
 export async function uploadRoomImage(file: File): Promise<RoomImage> {
@@ -856,7 +856,7 @@ export function deleteRoomImage(url: string): Promise<{ ok: boolean }> {
   return request('/images', { method: 'DELETE', body: JSON.stringify({ url }) }, 'Не удалось удалить фото');
 }
 
-/* ── Настройки ────────────────────────────────────────────────────────────── */
+/* ── Настройки ────────────────────────────────────────────────────────── */
 
 // GET /settings
 export async function getRoomSettings(): Promise<RoomSettings> {
@@ -875,7 +875,7 @@ export function getDiagnostics(recheck = false): Promise<Diagnostics> {
   return request<Diagnostics>(`/diagnostics${qs({ recheck })}`, {}, 'Не удалось получить диагностику');
 }
 
-/* ── Бронирования (без Level.Travel) ────────────────────────────────────── */
+/* ── Бронирования (без Level.Travel) ──────────────────────────────────── */
 
 /** Тот же request, но коды ошибок — с подписями бронирований. */
 async function bookingRequest<T>(path: string, init: RequestInit = {}, fallback = 'Ошибка запроса'): Promise<T> {
@@ -951,7 +951,7 @@ export async function resendBookingVoucher(id: number): Promise<{ booking: Booki
   return { booking: data.booking, result: data.result };
 }
 
-/* ── Хелперы ──────────────────────────────────────────────────────────────── */
+/* ── Хелперы ──────────────────────────────────────────────────────────── */
 
 /** Абсолютный URL фото: свои (`/uploads/rooms/…`) лежат на totus_API, LT — по полной ссылке. */
 export function imageUrl(url: string | null | undefined): string {
