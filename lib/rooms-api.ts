@@ -22,8 +22,9 @@ export type PricingMode = 'fixed' | 'rule';
 /** Единица фиксированной цены: за проживание | за ночь (× nights_count предложения-шаблона). */
 export type FixedPriceUnit = 'total' | 'per_night';
 
-/** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена. */
-export type RoomTypeStatus = 'fixed' | 'replacing' | 'inactive' | 'source_missing' | 'margin_clamped';
+/** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена;
+ * диагностика: `no_offers` — номер в выдаче, но предложений нет; `no_pricing` — режим цены без цены/правила. */
+export type RoomTypeStatus = 'fixed' | 'replacing' | 'inactive' | 'source_missing' | 'no_offers' | 'no_pricing' | 'margin_clamped';
 
 export interface RoomTypeRule {
   ruleType: RuleType;
@@ -179,6 +180,9 @@ export interface RoomTypeLast {
   operator: string | null;
   seenAt: string | null;
   marginClamped: boolean;
+  /** Диагностика (дубль lastSkipReason/lastCheckedAt). */
+  skipReason?: string | null;
+  checkedAt?: string | null;
 }
 
 export interface RoomType {
@@ -222,6 +226,13 @@ export interface RoomType {
   active: boolean;
   sortOrder: number;
   last: RoomTypeLast;
+  /**
+   * Диагностика витрины: причина, по которой комната НЕ была вставлена в последний ответ /hotels-rooms по её отелю
+   * (`no_pricing…`, `search_type (…)`, `source_room_missing (source N; ids in result: …)`, `no_offers (…)`, `offer_map_failed (…)`);
+   * null — вставлена или ещё не проверялась (см. lastCheckedAt). Требует колонок миграции (иначе всегда null).
+   */
+  lastSkipReason?: string | null;
+  lastCheckedAt?: string | null;
   ordersCount?: number;
   createdBy: string | null;
   createdAt: string | null;
@@ -332,6 +343,59 @@ export interface RoomTypeOrder {
   providerPrice: number;
   finalPrice: number;
   rule: PriceRuleSnapshot;
+}
+
+/** GET /diagnostics — почему Room Type не виден на витрине (docs/CUSTOM_ROOMS_API.md §7). Отвечает и при 503 у остальных маршрутов. */
+export interface DiagnosticsRoomType {
+  id: number;
+  hotelId: number;
+  hotelName: string | null;
+  sourceRoomId: number;
+  sourceRoomName: string | null;
+  pricingMode: PricingMode;
+  pricingOk: boolean;
+  pricingLabel: string | null;
+  packageTypes: PackageType[];
+  lastSeenAt: string | null;
+  lastCheckedAt: string | null;
+  lastSkipReason: string | null;
+}
+
+export interface DiagnosticsMiddleware {
+  /** false — app.use(require('./middleware/customRooms')) не подключён или процесс не перезапущен. */
+  mounted: boolean;
+  middlewareCalls: number;
+  watchedCalls: number;
+  notReadySkips: number;
+  startSearchSeen: number;
+  hotelsRoomsSeen: number;
+  hotelsRoomsInjected: number;
+  hotelsRoomsErrors: number;
+  lastStartSearchAt: string | null;
+  lastHotelsRoomsAt: string | null;
+  lastHotelsRoomsHotelId: string | null;
+  lastHotelsRoomsSearchType: string | null;
+  lastInjectAt: string | null;
+  lastError: { at: string; message: string } | null;
+  /** С какого момента считаются счётчики (pm2 restart обнуляет). */
+  startedAt: string;
+}
+
+export interface Diagnostics {
+  ready: boolean;
+  disabledReason: string | null;
+  missingTables: string[];
+  missingColumns: string[];
+  diagColumns: boolean;
+  checkedAt: string | null;
+  dbError: string | null;
+  settings: RoomSettings | null;
+  env: { hotelSearchTypeCodes: string };
+  activeRoomTypes: DiagnosticsRoomType[];
+  appJsHooks: { middleware: DiagnosticsMiddleware; adminRoutes: boolean };
+  events: { at: string; line: string; error?: boolean }[];
+  /** Подсказки по-русски — что проверить владельцу. */
+  hints: string[];
 }
 
 export interface HotelSearchParams {
@@ -804,6 +868,11 @@ export async function getRoomSettings(): Promise<RoomSettings> {
 export async function updateRoomSettings(patch: Partial<RoomSettings>): Promise<RoomSettings> {
   const data = await request<{ ok: boolean; settings: RoomSettings }>('/settings', { method: 'PUT', body: JSON.stringify(patch) }, 'Не удалось сохранить настройки');
   return data.settings;
+}
+
+// GET /diagnostics?recheck=1 — работает и когда модуль DISABLED (миграция не выполнена)
+export function getDiagnostics(recheck = false): Promise<Diagnostics> {
+  return request<Diagnostics>(`/diagnostics${qs({ recheck })}`, {}, 'Не удалось получить диагностику');
 }
 
 /* ── Бронирования (без Level.Travel) ──────────────────────────────────── */

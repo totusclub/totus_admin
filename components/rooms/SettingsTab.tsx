@@ -1,18 +1,158 @@
 'use client';
 
-// Вкладка «Настройки»: глобальная минимальная маржа, округление, бейдж, «показывать только при поиске отелей» (v2: выкл по умолчанию).
+// Вкладка «Настройки»: глобальная минимальная маржа, округление, бейдж, «показывать только при поиске отелей» (v2: выкл по умолчанию),
+// блок «Диагностика» — GET /api/admin/rooms/diagnostics: почему активный Room Type не виден на сайте (без логов сервера).
 
 import { useEffect, useState } from 'react';
-import { t, text, button, cardStyle } from '@/lib/theme';
+import { t, radius, text, button, cardStyle, badge } from '@/lib/theme';
 import { Field, ErrorBox, SuccessBox, Toggle, compactInput } from '@/components/notifications/shared';
-import { getRoomSettings, updateRoomSettings, type RoomSettings, type Rounding, type RuleType } from '@/lib/rooms-api';
-import { Segment, Spinner } from './shared';
+import { getRoomSettings, updateRoomSettings, getDiagnostics, type Diagnostics, type RoomSettings, type Rounding, type RuleType } from '@/lib/rooms-api';
+import { Segment, Spinner, formatDateTime, skipReasonText, tableStyle, thStyle, tdStyle, TableWrap } from './shared';
 
 const ROUNDING_OPTIONS: { value: Rounding; label: string }[] = [
     { value: 1, label: '1 ₽' },
     { value: 10, label: '10 ₽' },
     { value: 100, label: '100 ₽' },
 ];
+
+function Stat({ label, value, warn }: { label: string; value: string | number; warn?: boolean }) {
+    return (
+        <div style={{ padding: '8px 12px', borderRadius: radius.sm, background: t.surfaceInset, minWidth: 120 }}>
+            <div style={text.caption}>{label}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: warn ? t.warning : t.textPrimary }}>{value}</div>
+        </div>
+    );
+}
+
+/** Диагностика витрины: миграция, подключение middleware в app.js, счётчики /hotels-rooms, причина пропуска каждой Room Type, подсказки. */
+function DiagnosticsCard() {
+    const [data, setData] = useState<Diagnostics | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [showEvents, setShowEvents] = useState(false);
+
+    const load = async (recheck: boolean) => {
+        setBusy(true);
+        setError(null);
+        try {
+            setData(await getDiagnostics(recheck));
+        } catch (e: any) {
+            setError(e?.message || 'Не удалось получить диагностику');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const mw = data?.appJsHooks?.middleware;
+    return (
+        <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                    <div style={text.cardTitle}>Диагностика витрины</div>
+                    <div style={text.caption}>Почему активный Room Type не виден на сайте: миграция, подключение в app.js, запросы /hotels-rooms, причина пропуска по каждой комнате</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => load(false)} disabled={busy} style={{ ...button(data ? 'secondary' : 'primary', 'md'), opacity: busy ? 0.6 : 1 }}>
+                        {busy ? 'Проверяем...' : data ? 'Обновить' : 'Диагностика'}
+                    </button>
+                    {data ? (
+                        <button type="button" onClick={() => load(true)} disabled={busy} style={{ ...button('secondary', 'md'), opacity: busy ? 0.6 : 1 }} title="Перепроверить таблицы и колонки в БД прямо сейчас">
+                            Перепроверить БД
+                        </button>
+                    ) : null}
+                </div>
+            </div>
+            <ErrorBox message={error} />
+            {data ? (
+                <>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={badge(data.ready ? 'success' : 'error')}>{data.ready ? 'Модуль включён' : `Модуль выключен: ${data.disabledReason || 'миграция не выполнена'}`}</span>
+                        <span style={badge(mw?.mounted ? 'success' : 'error')}>{mw?.mounted ? 'Middleware подключён в app.js' : 'Middleware НЕ подключён (app.js / pm2 restart)'}</span>
+                        <span style={badge(data.diagColumns ? 'neutral' : 'warning')}>{data.diagColumns ? 'Колонки диагностики есть' : 'Нет колонок диагностики — повторить миграцию'}</span>
+                        {data.settings?.hotelOnly ? <span style={badge('warning')}>Включено «только поиск отелей» — сайт ищет package</span> : null}
+                    </div>
+                    {data.missingTables.length || data.missingColumns.length ? (
+                        <div style={text.caption}>
+                            {data.missingTables.length ? `Нет таблиц: ${data.missingTables.join(', ')}. ` : ''}
+                            {data.missingColumns.length ? `Нет колонок: ${data.missingColumns.join(', ')}.` : ''}
+                        </div>
+                    ) : null}
+                    {mw ? (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Stat label="Запросов через middleware" value={mw.middlewareCalls} warn={mw.middlewareCalls === 0} />
+                            <Stat label="/start-search" value={mw.startSearchSeen} />
+                            <Stat label="/hotels-rooms обработано" value={mw.hotelsRoomsSeen} warn={mw.hotelsRoomsSeen === 0} />
+                            <Stat label="…с вставкой наших комнат" value={mw.hotelsRoomsInjected} warn={mw.hotelsRoomsSeen > 0 && mw.hotelsRoomsInjected === 0} />
+                            <Stat label="Ошибок трансформации" value={mw.hotelsRoomsErrors} warn={mw.hotelsRoomsErrors > 0} />
+                            <Stat label="Пропущено (модуль выключен)" value={mw.notReadySkips} warn={mw.notReadySkips > 0} />
+                        </div>
+                    ) : null}
+                    {mw ? (
+                        <div style={text.caption}>
+                            Счётчики с {formatDateTime(mw.startedAt)} (pm2 restart обнуляет). Последний /hotels-rooms: {mw.lastHotelsRoomsAt ? `${formatDateTime(mw.lastHotelsRoomsAt)} · отель ${mw.lastHotelsRoomsHotelId} · search_type ${mw.lastHotelsRoomsSearchType || '—'}` : 'не было'}.
+                            {mw.lastError ? ` Последняя ошибка: ${mw.lastError.message}` : ''}
+                        </div>
+                    ) : null}
+                    {data.hints.length ? (
+                        <div style={{ padding: '10px 12px', borderRadius: radius.sm, background: t.warningSoft, color: t.textPrimary, fontSize: 13, lineHeight: '18px', display: 'grid', gap: 6 }}>
+                            {data.hints.map((h, i) => <div key={i}>• {h}</div>)}
+                        </div>
+                    ) : data.ready ? (
+                        <div style={{ padding: '10px 12px', borderRadius: radius.sm, background: t.successSoft, color: t.success, fontSize: 13 }}>Проблем не найдено: комнаты вставляются в ответы /hotels-rooms.</div>
+                    ) : null}
+                    {data.activeRoomTypes.length ? (
+                        <TableWrap>
+                            <table style={tableStyle}>
+                                <thead>
+                                    <tr>
+                                        <th style={thStyle}>Room Type</th>
+                                        <th style={thStyle}>Отель</th>
+                                        <th style={thStyle}>Номер-источник</th>
+                                        <th style={thStyle}>Цена</th>
+                                        <th style={thStyle}>Тип поиска</th>
+                                        <th style={thStyle}>Показан</th>
+                                        <th style={thStyle}>Проверен</th>
+                                        <th style={thStyle}>Причина пропуска</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.activeRoomTypes.map((rt) => (
+                                        <tr key={rt.id}>
+                                            <td style={tdStyle}>#{rt.id}</td>
+                                            <td style={tdStyle}>{rt.hotelName || '—'} <span style={text.caption}>({rt.hotelId})</span></td>
+                                            <td style={tdStyle}>{rt.sourceRoomName || '—'} <span style={text.caption}>(id {rt.sourceRoomId})</span></td>
+                                            <td style={{ ...tdStyle, color: rt.pricingOk ? t.textPrimary : t.error }}>{rt.pricingOk ? rt.pricingLabel || rt.pricingMode : 'не задана'}</td>
+                                            <td style={tdStyle}>{rt.packageTypes?.length ? rt.packageTypes.join(', ') : 'любой'}</td>
+                                            <td style={tdStyle}>{rt.lastSeenAt ? formatDateTime(rt.lastSeenAt) : 'ещё нет'}</td>
+                                            <td style={tdStyle}>{rt.lastCheckedAt ? formatDateTime(rt.lastCheckedAt) : 'ещё нет'}</td>
+                                            <td style={{ ...tdStyle, color: rt.lastSkipReason ? t.warning : t.success, maxWidth: 360, wordBreak: 'break-word' }} title={rt.lastSkipReason || ''}>
+                                                {rt.lastSkipReason ? skipReasonText(rt.lastSkipReason) : rt.lastSeenAt ? 'вставлена' : '—'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </TableWrap>
+                    ) : data.ready ? (
+                        <div style={text.caption}>Нет активных Room Type.</div>
+                    ) : null}
+                    {data.events.length ? (
+                        <div>
+                            <button type="button" onClick={() => setShowEvents((v) => !v)} style={button('tertiary', 'sm')}>
+                                {showEvents ? 'Скрыть журнал' : `Журнал middleware (${data.events.length})`}
+                            </button>
+                            {showEvents ? (
+                                <pre style={{ ...text.mono, marginTop: 8, padding: 12, borderRadius: radius.sm, background: t.surfaceInset, color: t.textSecondary, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflow: 'auto' }}>
+                                    {data.events.map((e) => `${e.at} ${e.line}`).join('\n')}
+                                </pre>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </>
+            ) : null}
+        </div>
+    );
+}
 
 export default function SettingsTab() {
     const [settings, setSettings] = useState<RoomSettings | null>(null);
@@ -74,6 +214,7 @@ export default function SettingsTab() {
     return (
         <div style={{ display: 'grid', gap: 16, maxWidth: 720 }}>
             <ErrorBox message={error} />
+            <DiagnosticsCard />
             {settings ? (
                 <>
                     <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>

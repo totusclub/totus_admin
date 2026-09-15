@@ -6,7 +6,7 @@
 import { t, radius, text, button, badge } from '@/lib/theme';
 import { Toggle } from '@/components/notifications/shared';
 import type { RoomType } from '@/lib/rooms-api';
-import { STATUS_META, roomTypeStatus, roomTypeLabel, statusText, BrandBadge, PricePair } from './shared';
+import { STATUS_META, roomTypeStatus, roomTypeLabel, statusText, activeSkipReason, skipReasonText, formatShortDateTime, BrandBadge, PricePair } from './shared';
 
 /** Цены для карточки: первая строка preview по выдаче (мин. цена провайдера), иначе `last`. */
 export function cardPrices(rt: RoomType): { provider: number | null; final: number | null; margin: number | null } {
@@ -40,6 +40,8 @@ export default function RoomTypeCard({
     const meta = STATUS_META[status];
     const prices = cardPrices(rt);
     const fixed = rt.pricingMode === 'fixed';
+    // диагностика: причина последнего пропуска на витрине (если она новее последнего показа) — показываем и при статусе с выдачи
+    const skipReason = rt.active && status !== 'skipped' ? activeSkipReason(rt) : null;
     const replaces = rt.operatorIds?.length ? ` · замещает ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператора ${rt.operatorIds.join(', ')}`}` : '';
     const meals = rt.mealTypes?.length ? rt.mealTypes.join(', ') : 'самое дешёвое питание';
 
@@ -68,8 +70,13 @@ export default function RoomTypeCard({
                     {showHotel && rt.hotelName ? `${rt.hotelName} · ` : ''}
                     {rt.operatorName || 'Arlekino'} · у номера «{rt.sourceRoomName || `#${rt.sourceRoomId}`}» · {meals}{replaces}
                 </div>
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                     <span style={{ ...badge(meta.tone), fontSize: 12 }}>{statusText(rt)}</span>
+                    {skipReason ? (
+                        <span style={{ ...text.caption, color: t.warning }} title={skipReason}>
+                            Последняя проверка на сайте{rt.lastCheckedAt ? ` ${formatShortDateTime(rt.lastCheckedAt)}` : ''}: пропущен — {skipReasonText(skipReason)}
+                        </span>
+                    ) : null}
                 </div>
             </div>
             <PricePair provider={prices.provider} final={prices.final} margin={prices.margin} compact fixed={fixed} perNight={fixed && rt.fixedPriceUnit === 'per_night' && prices.final != null && prices.final === rt.fixedPrice} />
