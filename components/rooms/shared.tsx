@@ -11,25 +11,57 @@ import { formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type Ro
 
 /* ── Справочники ──────────────────────────────────────────────────────── */
 
-export type ListStatus = RoomTypeStatus | 'never_seen';
+export type ListStatus = RoomTypeStatus | 'never_seen' | 'skipped';
 
 export const STATUS_META: Record<ListStatus, { label: string; tone: BadgeTone }> = {
     fixed: { label: 'Активен · фикс. цена', tone: 'success' },
     replacing: { label: 'Активен', tone: 'success' },
     inactive: { label: 'Выкл', tone: 'neutral' },
     source_missing: { label: 'Источник не найден', tone: 'warning' },
+    no_offers: { label: 'Нет предложений у номера', tone: 'warning' },
+    no_pricing: { label: 'Цена не задана', tone: 'error' },
     margin_clamped: { label: 'Маржа ограничена', tone: 'error' },
     never_seen: { label: 'Ещё не показывался', tone: 'neutral' },
+    skipped: { label: 'Пропущен на витрине', tone: 'warning' },
 };
+
+/** Причина последнего пропуска на витрине актуальна, если проверка была позже последнего показа (или показов не было). */
+export function activeSkipReason(rt: RoomType): string | null {
+    const reason = rt.lastSkipReason || rt.last?.skipReason || null;
+    if (!reason) return null;
+    const checked = rt.lastCheckedAt || rt.last?.checkedAt || null;
+    const seen = rt.last?.seenAt || null;
+    if (seen && checked && new Date(checked).getTime() < new Date(seen).getTime()) return null;
+    return reason;
+}
+
+/** Причина пропуска по-русски: `source_room_missing (source 501; ids in result: …)` → «номер-источник не найден в выдаче (…)». */
+export function skipReasonText(reason: string | null | undefined): string {
+    if (!reason) return '';
+    const m = /^([a-z_]+)\s*(\(.*\))?$/.exec(reason.trim());
+    const code = m ? m[1] : reason;
+    const detail = m && m[2] ? ` ${m[2]}` : '';
+    const names: Record<string, string> = {
+        no_pricing: 'цена или правило не заданы',
+        search_type: 'не совпал тип поиска',
+        source_room_missing: 'номер-источник не найден в выдаче Level.Travel',
+        no_offers: 'у номера-источника нет подходящих предложений',
+        no_priced_offers: 'у предложений номера нет цены',
+        offer_map_failed: 'не удалось сохранить карту предложений (ошибка БД)',
+    };
+    return `${names[code] || code}${detail}`;
+}
 
 /**
  * Статус для карточек и списка. Выключенный — всегда «Выкл» (backend тоже отдаёт 'inactive');
  * по выдаче (GET /hotels/:id/rooms) — `status` сервера; в списке (GET /room-types) — по `last`:
- * активный без показов — «Ещё не показывался», не «Источник не найден».
+ * активный без показов — «Ещё не показывался», не «Источник не найден»; если последняя проверка на витрине
+ * закончилась пропуском (lastSkipReason новее lastSeenAt) — «Пропущен на витрине» с причиной.
  */
 export function roomTypeStatus(rt: RoomType): ListStatus {
     if (!rt.active) return 'inactive';
     if (rt.status) return rt.status;
+    if (activeSkipReason(rt)) return 'skipped';
     if (!rt.last?.seenAt) return 'never_seen';
     if (rt.pricingMode === 'fixed') return 'fixed';
     if (rt.last?.marginClamped) return 'margin_clamped';
@@ -43,7 +75,10 @@ export function statusText(rt: RoomType): string {
     if (status === 'fixed') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · фиксированная цена${replaces}`;
     if (status === 'replacing') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · цена по правилу${replaces}`;
     if (status === 'source_missing') return 'Источник не найден на эти даты';
+    if (status === 'no_offers') return 'Номер есть в выдаче, но предложений нет — комната не показывается';
+    if (status === 'no_pricing') return 'Цена или правило не заданы — откройте «Изменить» и сохраните цену';
     if (status === 'margin_clamped') return 'Маржа ограничена минимальным порогом';
+    if (status === 'skipped') return `На витрине пропущен: ${skipReasonText(activeSkipReason(rt))}`;
     if (status === 'never_seen') return 'Ещё не показывался на витрине';
     return 'Выключен — на витрине не показывается';
 }
@@ -192,7 +227,7 @@ export function useDebounced<T>(value: T, delay = 400): T {
     return debounced;
 }
 
-/* ── Примитивы ────────────────────────────────────────────────────────── */
+/* ── Примитивы ──────────────────────────────────────────────────────────── */
 
 export function Stars({ count, size = 14 }: { count: number; size?: number }) {
     const n = Math.max(0, Math.min(5, Math.round(count)));
@@ -408,7 +443,7 @@ export function PricePair({ provider, final, margin, compact, fixed, perNight }:
     );
 }
 
-/* ── Таблицы ──────────────────────────────────────────────────────────── */
+/* ── Таблицы ────────────────────────────────────────────────────────────── */
 
 export const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 export const thStyle: CSSProperties = {
