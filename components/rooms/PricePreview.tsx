@@ -2,18 +2,20 @@
 
 // Live-предпросмотр цены: POST /room-types/preview-price (debounce) по актуальным предложениям источника.
 // Таблица «Оператор · Питание · Цена LT → Наша · Маржа» + предупреждение при margin_clamped + «Так увидит пользователь».
+// v2: режим цены (pricingMode) — fixed считается и без предложений (по числу ночей), rule — как раньше.
 
 import { useEffect, useMemo, useState } from 'react';
 import Icon from '@/components/Icon';
 import { t, radius, text, cardStyle, button } from '@/lib/theme';
 import { ErrorBox } from '@/components/notifications/shared';
-import { previewPrice, formatMoney, ruleLabel, type PreviewResult, type PreviewRow, type RoomSettings, type RoomTypeRuleInput } from '@/lib/rooms-api';
+import { previewPrice, formatMoney, ruleLabel, fixedPriceLabel, type PreviewResult, type PreviewRow, type PricingInput, type RoomSettings, type RoomTypeRuleInput } from '@/lib/rooms-api';
 import { Thumb, useDebounced, tableStyle, thStyle, tdStyle, tdRight, thRight, TableWrap, Spinner, plural } from './shared';
 
 export interface PreviewOffer {
     operator_name?: string | null;
     meal?: string | null;
     price: number;
+    nights_count?: number | null;
 }
 
 export function marginText(settings: RoomSettings | null | undefined, rule?: RoomTypeRuleInput | null): string {
@@ -25,7 +27,7 @@ export function marginText(settings: RoomSettings | null | undefined, rule?: Roo
 }
 
 export default function PricePreview({
-    rule,
+    pricing,
     offers,
     settings,
     subtitle,
@@ -34,7 +36,8 @@ export default function PricePreview({
     userCard,
     nights,
 }: {
-    rule: RoomTypeRuleInput | null;
+    /** Режим цены (fixed / rule); null — данные ещё не введены. */
+    pricing: PricingInput | null;
     offers: PreviewOffer[];
     settings?: RoomSettings | null;
     subtitle?: string;
@@ -44,22 +47,25 @@ export default function PricePreview({
     userCard?: { name: string; meta?: string; photo?: string; sourceName?: string | null; operator?: string | null };
     nights?: number;
 }) {
-    const key = useMemo(() => JSON.stringify({ rule, offers }), [rule, offers]);
+    const key = useMemo(() => JSON.stringify({ pricing, offers, nights: nights || null }), [pricing, offers, nights]);
     const debouncedKey = useDebounced(key, 350);
     const [result, setResult] = useState<PreviewResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const fixed = pricing?.pricingMode === 'fixed';
+    const rule: RoomTypeRuleInput | null = pricing?.pricingMode === 'rule' ? pricing.rule || null : null;
 
     useEffect(() => {
-        const parsed = JSON.parse(debouncedKey) as { rule: RoomTypeRuleInput | null; offers: PreviewOffer[] };
-        if (!parsed.rule || !parsed.offers.length) {
+        const parsed = JSON.parse(debouncedKey) as { pricing: PricingInput | null; offers: PreviewOffer[]; nights: number | null };
+        // rule — нужны предложения-шаблоны; fixed — считается и без них (по числу ночей поиска)
+        if (!parsed.pricing || (parsed.pricing.pricingMode === 'rule' && !parsed.offers.length)) {
             setResult(null);
             return;
         }
         let cancelled = false;
         setLoading(true);
         setError(null);
-        previewPrice(parsed.rule, parsed.offers)
+        previewPrice({ ...parsed.pricing, offers: parsed.offers, nights: parsed.nights })
             .then((r) => {
                 if (!cancelled) setResult(r);
             })
@@ -78,6 +84,7 @@ export default function PricePreview({
     const clamped = rows.some((r) => r.margin_clamped);
     const best = rows.filter((r) => r.final_price != null).sort((a, b) => (a.final_price || 0) - (b.final_price || 0))[0];
     const marginLabel = marginText(settings, rule);
+    const priceLabel = result?.label || (fixed ? fixedPriceLabel(pricing?.fixedPrice, pricing?.fixedPriceUnit) : ruleLabel(rule));
 
     return (
         <div style={{ display: 'grid', gap: 16 }}>
@@ -97,9 +104,12 @@ export default function PricePreview({
 
                 <ErrorBox message={error} />
 
-                {!rule ? <div style={text.body}>Задайте правило цены — расчёт появится здесь.</div> : null}
-                {rule && !offers.length ? (
+                {!pricing ? <div style={text.body}>Укажите фиксированную цену или правило — расчёт появится здесь.</div> : null}
+                {pricing && !fixed && !offers.length ? (
                     <div style={text.body}>Нет актуальных предложений источника — расчёт недоступен. Откройте отель из свежего поиска.</div>
+                ) : null}
+                {pricing && fixed && !offers.length ? (
+                    <div style={{ ...text.caption, marginBottom: 8 }}>Нет актуальных предложений номера — маржа неизвестна; показана наша фиксированная цена{nights ? ` за ${nights} ${plural(nights, 'ночь', 'ночи', 'ночей')}` : ''}.</div>
                 ) : null}
 
                 {loading && !result ? <Spinner label="Считаем..." /> : null}
@@ -110,7 +120,7 @@ export default function PricePreview({
                             <table style={tableStyle}>
                                 <thead>
                                     <tr>
-                                        <th style={thStyle}>Оператор</th>
+                                        <th style={thStyle}>Шаблон LT</th>
                                         <th style={thStyle}>Питание</th>
                                         <th style={thRight}>Цена LT</th>
                                         <th style={thRight}>Наша цена</th>
@@ -138,7 +148,7 @@ export default function PricePreview({
                                 marginTop: 12,
                                 padding: '10px 12px',
                                 borderRadius: radius.sm,
-                                background: clamped ? t.errorSoft : t.warningSoft,
+                                background: clamped ? t.errorSoft : fixed ? t.accentSoft : t.warningSoft,
                                 color: clamped ? t.error : t.textPrimary,
                                 fontSize: 13,
                                 lineHeight: '18px',
@@ -149,9 +159,11 @@ export default function PricePreview({
                         >
                             <Icon name="info" size={16} style={{ marginTop: 1, flexShrink: 0 }} />
                             <span>
-                                {clamped
-                                    ? `Цена поднята до порога минимальной маржи ${marginLabel}: правило ${result ? result.rule.label : ruleLabel(rule)} даёт субсидию больше допустимой. Комната будет помечена «Маржа ограничена».`
-                                    : `Минимальная маржа ${marginLabel} не нарушена: правило ${result ? result.rule.label : ruleLabel(rule)} в пределах порога.`}
+                                {fixed
+                                    ? `Фиксированная цена ${priceLabel}: не зависит от цены Level.Travel, минимальная маржа и округление не применяются. Маржа — разница с самым дешёвым предложением номера (шаблоном).`
+                                    : clamped
+                                    ? `Цена поднята до порога минимальной маржи ${marginLabel}: правило ${priceLabel} даёт субсидию больше допустимой. Комната будет помечена «Маржа ограничена».`
+                                    : `Минимальная маржа ${marginLabel} не нарушена: правило ${priceLabel} в пределах порога.`}
                             </span>
                         </div>
                     </div>
@@ -172,11 +184,11 @@ export default function PricePreview({
                         </div>
                         <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <div style={{ fontSize: 20, fontWeight: 700, color: t.accent }}>{formatMoney(best.final_price)}</div>
-                            <div style={text.caption}>{best.meal || ''}{nights ? ` · за ${nights} ${plural(nights, 'ночь', 'ночи', 'ночей')}` : ''}</div>
+                            <div style={text.caption}>{best.meal || ''}{best.nights_count || nights ? ` · за ${best.nights_count || nights} ${plural(Number(best.nights_count || nights), 'ночь', 'ночи', 'ночей')}` : ''}{fixed ? ' · фикс.' : ''}</div>
                         </div>
                     </div>
                     <div style={{ ...text.caption, marginTop: 8 }}>
-                        Бронирование выполняет туроператор{userCard.operator ? ` ${userCard.operator}` : ''} через Level.Travel · оплата нашей цены
+                        Показывается у номера как оператор {userCard.operator || 'Arlekino'} при любых датах и составе гостей · оплата нашей цены · бронирование подтверждает сотрудник
                     </div>
                 </div>
             ) : null}
