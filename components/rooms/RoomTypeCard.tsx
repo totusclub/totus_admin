@@ -2,11 +2,12 @@
 
 // Карточка нашего Room Type (под номером LT или в списке отеля): brand-полоса, цена (v2: «1 ₽ (фикс.)» / правило),
 // «Провайдер → Наша», маржа, статус по актуальной выдаче, действия.
+// §2.3: бейдж «Только наши» — у номера/отеля скрыты предложения Level.Travel.
 
 import { t, radius, text, button, badge } from '@/lib/theme';
 import { Toggle } from '@/components/notifications/shared';
 import type { RoomType } from '@/lib/rooms-api';
-import { STATUS_META, roomTypeStatus, roomTypeLabel, statusText, activeSkipReason, skipReasonText, formatShortDateTime, BrandBadge, PricePair } from './shared';
+import { STATUS_META, roomTypeStatus, roomTypeLabel, statusText, activeSkipReason, skipReasonText, formatShortDateTime, BrandBadge, ExclusiveBadge, PricePair } from './shared';
 
 /** Цены для карточки: первая строка preview по выдаче (мин. цена провайдера), иначе `last`. */
 export function cardPrices(rt: RoomType): { provider: number | null; final: number | null; margin: number | null } {
@@ -65,6 +66,7 @@ export default function RoomTypeCard({
                     <BrandBadge label={rt.badge} />
                     <span style={{ ...text.cardTitle, fontSize: 15 }}>{rt.content?.nameRu}</span>
                     <span style={badge(fixed ? 'accent' : 'neutral')}>{fixed ? 'Цена' : 'Правило'} {roomTypeLabel(rt)}</span>
+                    <ExclusiveBadge rt={rt} />
                 </div>
                 <div style={{ ...text.caption, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {showHotel && rt.hotelName ? `${rt.hotelName} · ` : ''}
