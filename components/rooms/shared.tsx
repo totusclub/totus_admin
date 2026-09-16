@@ -9,13 +9,13 @@ import { t, radius, text, button, badge } from '@/lib/theme';
 import type { BadgeTone } from '@/components/notifications/shared';
 import { formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
 
-/* ── Справочники ──────────────────────────────────────────────────────── */
+/* ── Справочники ────────────────────────────────────────────────────── */
 
 export type ListStatus = RoomTypeStatus | 'never_seen' | 'skipped';
 
 export const STATUS_META: Record<ListStatus, { label: string; tone: BadgeTone }> = {
     fixed: { label: 'Активен · фикс. цена', tone: 'success' },
-    replacing: { label: 'Активен', tone: 'success' },
+    active: { label: 'Активен · правило', tone: 'success' },
     inactive: { label: 'Выкл', tone: 'neutral' },
     source_missing: { label: 'Источник не найден', tone: 'warning' },
     no_offers: { label: 'Нет предложений у номера', tone: 'warning' },
@@ -65,17 +65,17 @@ export function roomTypeStatus(rt: RoomType): ListStatus {
     if (!rt.last?.seenAt) return 'never_seen';
     if (rt.pricingMode === 'fixed') return 'fixed';
     if (rt.last?.marginClamped) return 'margin_clamped';
-    return 'replacing';
+    return 'active';
 }
 
 /** Подпись статуса на карточке под номером. */
 export function statusText(rt: RoomType): string {
     const status = roomTypeStatus(rt);
-    const replaces = rt.operatorIds?.length ? ` · замещает предложения ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператора ${rt.operatorIds.join(', ')}`}` : '';
-    if (status === 'fixed') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · фиксированная цена${replaces}`;
-    if (status === 'replacing') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · цена по правилу${replaces}`;
+    const templates = rt.operatorIds?.length ? ` · шаблон: ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператор ${rt.operatorIds.join(', ')}`}` : '';
+    if (status === 'fixed') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · фиксированная цена${templates}`;
+    if (status === 'active') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · цена по правилу${templates}`;
     if (status === 'source_missing') return 'Источник не найден на эти даты';
-    if (status === 'no_offers') return 'Номер есть в выдаче, но предложений нет — комната не показывается';
+    if (status === 'no_offers') return 'Номер есть в выдаче, но предложений нет — наше предложение не добавляется';
     if (status === 'no_pricing') return 'Цена или правило не заданы — откройте «Изменить» и сохраните цену';
     if (status === 'margin_clamped') return 'Маржа ограничена минимальным порогом';
     if (status === 'skipped') return `На витрине пропущен: ${skipReasonText(activeSkipReason(rt))}`;
@@ -184,13 +184,13 @@ export function timeAgo(value?: string | null): string {
 /** Текст записи истории правок из `changes` JSON. */
 export function describeChange(item: ChangeLogItem): string {
     const c = item.changes || {};
-    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · замещает операторов ${(c.operators as unknown[]).join(', ')}` : ''}`;
+    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · шаблон от операторов ${(c.operators as unknown[]).join(', ')}` : ''}`;
     if (c.deleted) return `удалён${c.name ? ` («${String(c.name)}»)` : ''}`;
     if (c.duplicatedFrom) return `создан как копия Room Type #${String(c.duplicatedFrom)}`;
     const names: Record<string, string> = {
         ruleType: 'тип правила', ruleValue: 'значение правила', rounding: 'округление', minPrice: 'мин. цена', maxPrice: 'макс. цена',
         minMarginType: 'тип мин. маржи', minMarginValue: 'мин. маржа', badge: 'бейдж', active: 'активность', sortOrder: 'порядок',
-        packageTypes: 'тип пакета', operatorIds: 'замещаемые операторы', mealTypes: 'питание',
+        packageTypes: 'тип пакета', operatorIds: 'операторы-шаблоны', mealTypes: 'питание',
         pricingMode: 'режим цены', fixedPrice: 'фиксированная цена', fixedPriceUnit: 'единица фикс. цены', operatorName: 'название оператора', operatorId: 'ID оператора',
         'content.nameRu': 'название RU', 'content.nameEn': 'название EN', 'content.accommodation': 'размещение', 'content.area': 'площадь',
         'content.view': 'вид', 'content.description': 'описание', 'content.facilities': 'удобства', 'content.images': 'фотографии',
