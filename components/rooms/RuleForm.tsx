@@ -3,15 +3,19 @@
 // Цена и витрина (шаг 3 мастера и секция редактора). v2: переключатель режима цены —
 // «Фиксированная цена Arlekino» (₽ + за проживание / за ночь, по умолчанию) ⟷ «Правило от цены Level.Travel»
 // (% / ₽, значение, округление, min/max, минимальная маржа глобальная / своя); название оператора, бейдж, активность.
+// §2.3: блок «Продажи» — «продавать только наши предложения» (скрыть Level.Travel) с областью номер / весь отель.
 
 import Icon from '@/components/Icon';
 import { t, radius, text, cardStyle, button } from '@/lib/theme';
 import { Field, Toggle, compactInput, checkboxRow } from '@/components/notifications/shared';
-import { formatMoney, type FixedPriceUnit, type PackageType, type PricingInput, type PricingMode, type RoomSettings, type RoomType, type RoomTypeRuleInput, type Rounding, type RuleType } from '@/lib/rooms-api';
+import { formatMoney, type ExclusiveScope, type FixedPriceUnit, type PackageType, type PricingInput, type PricingMode, type RoomSettings, type RoomType, type RoomTypeRuleInput, type Rounding, type RuleType } from '@/lib/rooms-api';
 import { Segment } from './shared';
 
 export const DEFAULT_OPERATOR_NAME = 'Arlekino';
 export const FIXED_PRICE_MAX = 100000000;
+
+/** §2.3: предупреждение под блоком «Продажи» — одинаковое в мастере и редакторе. */
+export const EXCLUSIVE_WARNING = 'Предложения Level.Travel в этом номере/отеле перестанут показываться и их нельзя будет забронировать. В нашей базе будут регистрироваться только бронирования Arlekino.';
 
 export interface RuleFormState {
     /** v2: режим цены (по умолчанию fixed). */
@@ -23,6 +27,10 @@ export interface RuleFormState {
     operatorName: string;
     /** true — packageTypes пустые (любой тип поиска); false — только «отель» (без перелёта). */
     anySearch: boolean;
+    /** §2.3: продавать только наши предложения (скрыть Level.Travel). По умолчанию выключено. */
+    exclusive: boolean;
+    /** §2.3: область действия флага — только этот номер (по умолчанию) | весь отель. */
+    exclusiveScope: ExclusiveScope;
     ruleType: RuleType;
     ruleValue: string;
     rounding: Rounding;
@@ -42,6 +50,8 @@ export function defaultRuleState(settings?: RoomSettings | null): RuleFormState 
         fixedPriceUnit: 'total',
         operatorName: DEFAULT_OPERATOR_NAME,
         anySearch: true,
+        exclusive: false,
+        exclusiveScope: 'room',
         ruleType: 'percent',
         ruleValue: '-10',
         rounding: ([1, 10, 100].includes(Number(settings?.rounding)) ? Number(settings?.rounding) : 1) as Rounding,
@@ -63,6 +73,8 @@ export function stateFromRoomType(rt: RoomType, settings?: RoomSettings | null):
         fixedPriceUnit: rt.fixedPriceUnit === 'per_night' ? 'per_night' : 'total',
         operatorName: rt.operatorName || DEFAULT_OPERATOR_NAME,
         anySearch: !(rt.packageTypes || []).length,
+        exclusive: Boolean(rt.exclusive),
+        exclusiveScope: rt.exclusiveScope === 'hotel' ? 'hotel' : 'room',
         ruleType: rt.ruleType || 'percent',
         ruleValue: rt.ruleValue === null || rt.ruleValue === undefined ? '-10' : String(rt.ruleValue),
         rounding: ([1, 10, 100].includes(Number(rt.rounding)) ? Number(rt.rounding) : 1) as Rounding,
@@ -103,8 +115,8 @@ export function pricingFromState(s: RuleFormState): PricingInput | null {
     return rule ? { pricingMode: 'rule', rule } : null;
 }
 
-/** Поля цены для POST/PUT /room-types: режим, фикс. цена, оператор; правило — только в режиме rule. */
-export function pricingBodyFromState(s: RuleFormState): { pricingMode: PricingMode; fixedPrice: number | null; fixedPriceUnit: FixedPriceUnit; operatorName: string; rule: RoomTypeRuleInput | null; packageTypes: PackageType[] } {
+/** Поля цены для POST/PUT /room-types: режим, фикс. цена, оператор, флаг «только наши»; правило — только в режиме rule. */
+export function pricingBodyFromState(s: RuleFormState): { pricingMode: PricingMode; fixedPrice: number | null; fixedPriceUnit: FixedPriceUnit; operatorName: string; rule: RoomTypeRuleInput | null; packageTypes: PackageType[]; exclusive: boolean; exclusiveScope: ExclusiveScope } {
     const price = Number(s.fixedPrice);
     return {
         pricingMode: s.pricingMode,
@@ -113,6 +125,8 @@ export function pricingBodyFromState(s: RuleFormState): { pricingMode: PricingMo
         operatorName: s.operatorName.trim() || DEFAULT_OPERATOR_NAME,
         rule: s.pricingMode === 'rule' ? ruleFromState(s) : null,
         packageTypes: s.anySearch ? [] : ['hotel'],
+        exclusive: s.exclusive,
+        exclusiveScope: s.exclusive && s.exclusiveScope === 'hotel' ? 'hotel' : 'room',
     };
 }
 
@@ -256,6 +270,40 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
                     </div>
                 </div>
             ) : null}
+
+            <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
+                <div>
+                    <div style={text.cardTitle}>Продажи</div>
+                    <div style={text.caption}>Какие предложения показывать на витрине у этого номера Level.Travel</div>
+                </div>
+                <label style={checkboxRow}>
+                    <input type="checkbox" checked={value.exclusive} onChange={(e) => set('exclusive', e.target.checked)} />
+                    Продавать только наши предложения (скрыть Level.Travel)
+                </label>
+                {value.exclusive ? (
+                    <Field label="Где скрывать Level.Travel">
+                        <div role="radiogroup" style={{ display: 'grid', gap: 6, paddingTop: 4 }}>
+                            <label style={checkboxRow}>
+                                <input type="radio" name="exclusiveScope" checked={value.exclusiveScope !== 'hotel'} onChange={() => set('exclusiveScope', 'room')} />
+                                только этот номер
+                            </label>
+                            <label style={checkboxRow}>
+                                <input type="radio" name="exclusiveScope" checked={value.exclusiveScope === 'hotel'} onChange={() => set('exclusiveScope', 'hotel')} />
+                                весь отель
+                            </label>
+                        </div>
+                    </Field>
+                ) : null}
+                <div
+                    style={
+                        value.exclusive
+                            ? { padding: '10px 12px', borderRadius: radius.sm, background: t.warningSoft, color: t.textPrimary, fontSize: 13, lineHeight: '18px' }
+                            : { ...text.caption }
+                    }
+                >
+                    {EXCLUSIVE_WARNING}
+                </div>
+            </div>
 
             <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
                 <div style={text.cardTitle}>Витрина</div>
