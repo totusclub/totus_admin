@@ -1,6 +1,7 @@
 'use client';
 
 // Вкладка «Наши Room Type» (все отели): таблица GET /room-types с фильтрами и действиями.
+// §2.3: бейдж «Только наши» у Room Type с флагом «продавать только наши предложения».
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,7 +9,7 @@ import { t, text, button } from '@/lib/theme';
 import { ErrorBox, SuccessBox, StatusBadge, compactInput, selectStyle } from '@/components/notifications/shared';
 import { listRoomTypes, toggleRoomType, deleteRoomType, formatMoney, type RoomType } from '@/lib/rooms-api';
 import DuplicateDialog from './DuplicateDialog';
-import { STATUS_META, roomTypeStatus, type ListStatus, roomTypeLabel, formatShortDateTime, Stars, Empty, Spinner, ConfirmDialog, TableWrap, tableStyle, thStyle, tdStyle, tdRight, thRight, useDebounced } from './shared';
+import { STATUS_META, roomTypeStatus, type ListStatus, roomTypeLabel, formatShortDateTime, Stars, Empty, Spinner, ConfirmDialog, ExclusiveBadge, TableWrap, tableStyle, thStyle, tdStyle, tdRight, thRight, useDebounced } from './shared';
 
 const STATUS_OPTIONS: { value: ListStatus | ''; label: string }[] = [
     { value: '', label: 'Все статусы' },
@@ -166,6 +167,7 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
                                         <td style={tdStyle}>
                                             <div style={{ fontWeight: 600 }}>{rt.content?.nameRu}</div>
                                             {rt.mealTypes?.length ? <div style={text.caption}>{rt.mealTypes.join(', ')}</div> : null}
+                                            {rt.exclusive ? <div style={{ marginTop: 4 }}><ExclusiveBadge rt={rt} /></div> : null}
                                         </td>
                                         <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                                             <div style={{ fontWeight: fixed ? 600 : 400 }}>{roomTypeLabel(rt)}</div>
