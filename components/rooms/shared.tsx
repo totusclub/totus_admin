@@ -9,7 +9,7 @@ import { t, radius, text, button, badge } from '@/lib/theme';
 import type { BadgeTone } from '@/components/notifications/shared';
 import { formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
 
-/* ── Справочники ────────────────────────────────────────────────────── */
+/* ── Справочники ──────────────────────────────────────────────────────── */
 
 export type ListStatus = RoomTypeStatus | 'never_seen' | 'skipped';
 
