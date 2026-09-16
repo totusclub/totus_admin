@@ -6,6 +6,9 @@
 // (docs/CUSTOM_ROOMS_API.md в totus_API); бронирования без Level.Travel — там же, §6.
 // v2 (§2.1): связь по выбранному номеру LT без обязательного оператора, режим цены
 // fixed (цена Arlekino из админки) | rule (правило от цены LT), наш оператор operatorName/operatorId.
+// v3 (§2.2): отдельной карточки на витрине нет — наши предложения показываются внутри номера LT
+// (первыми в offers[meal]) рядом с предложениями Level.Travel; статус `active` вместо `replacing`,
+// поля `replaces_offer_ids` нет — предложения LT не замещаются.
 
 import { API_BASE_URL } from './server';
 
@@ -23,8 +26,9 @@ export type PricingMode = 'fixed' | 'rule';
 export type FixedPriceUnit = 'total' | 'per_night';
 
 /** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена;
+ * v3: `active` — активен, номер в выдаче, цена по правилу (наши предложения внутри номера рядом с предложениями LT);
  * диагностика: `no_offers` — номер в выдаче, но предложений нет; `no_pricing` — режим цены без цены/правила. */
-export type RoomTypeStatus = 'fixed' | 'replacing' | 'inactive' | 'source_missing' | 'no_offers' | 'no_pricing' | 'margin_clamped';
+export type RoomTypeStatus = 'fixed' | 'active' | 'inactive' | 'source_missing' | 'no_offers' | 'no_pricing' | 'margin_clamped';
 
 export interface RoomTypeRule {
   ruleType: RuleType;
@@ -152,7 +156,7 @@ export interface LtHotelRoom {
   min_price?: number;
   meal_types?: { id: string; min_price?: number; description?: string }[];
   offers: LtOffer[];
-  /** v2: id наших Room Type с источником = этот номер (показываются под номером всегда). */
+  /** v2/v3: id наших Room Type с источником = этот номер (в админке показываются под номером всегда; на витрине — предложения внутри номера). */
   room_types?: number[];
 }
 
@@ -194,7 +198,7 @@ export interface RoomType {
   sourceRoomId: number;
   sourceRoomName: string | null;
   sourceSnapshot: LtRoom | null;
-  /** v2: необязательны — пустые = не ограничивать; заданные = замещение предложений этих операторов у номера. */
+  /** v2/v3: необязательны — пустые = не ограничивать; заданные = шаблоном нашей цены берутся предложения только этих операторов (предложения LT не удаляются). */
   operatorIds: number[];
   operatorNames: string[];
   /** null — все типы питания источника (одно предложение с самым дешёвым питанием). */
