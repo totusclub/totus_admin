@@ -9,7 +9,7 @@ import { t, radius, text, button, badge } from '@/lib/theme';
 import type { BadgeTone } from '@/components/notifications/shared';
 import { exclusiveLabel, formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
 
-/* ── Справочники ────────────────────────────────────────────────────── */
+/* ── Справочники ── */
 
 export type ListStatus = RoomTypeStatus | 'never_seen' | 'skipped';
 
@@ -131,7 +131,7 @@ export function pricingModeLabel(rt: Pick<RoomType, 'pricingMode'>): string {
     return rt.pricingMode === 'fixed' ? 'Фиксированная цена' : 'Правило от цены Level.Travel';
 }
 
-/* ── Даты ────────────────────────────────────────────────────────────── */
+/* ── Даты ── */
 
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
@@ -233,7 +233,7 @@ export function describeChange(item: ChangeLogItem): string {
     return parts.join(' · ') || 'изменение';
 }
 
-/* ── Хуки ────────────────────────────────────────────────────────────── */
+/* ── Хуки ── */
 
 export function useDebounced<T>(value: T, delay = 400): T {
     const [debounced, setDebounced] = useState(value);
@@ -244,7 +244,7 @@ export function useDebounced<T>(value: T, delay = 400): T {
     return debounced;
 }
 
-/* ── Примитивы ───────────────────────────────────────────────────────── */
+/* ── Примитивы ── */
 
 export function Stars({ count, size = 14 }: { count: number; size?: number }) {
     const n = Math.max(0, Math.min(5, Math.round(count)));
@@ -471,7 +471,7 @@ export function PricePair({ provider, final, margin, compact, fixed, perNight }:
     );
 }
 
-/* ── Таблицы ─────────────────────────────────────────────────────────── */
+/* ── Таблицы ── */
 
 export const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 export const thStyle: CSSProperties = {
