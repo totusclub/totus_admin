@@ -2,7 +2,7 @@
 
 // Редактор Room Type одной страницей: якоря Источник / Контент / Цена / История правок,
 // справа live-preview; действия «Сохранить» (PUT), «Дублировать», «Сбросить контент к оригиналу», «Удалить».
-// v2: режим цены fixed/rule, название оператора; ограничение операторов (замещение) можно снять, питание — сузить.
+// v2: режим цены fixed/rule, название оператора; ограничение операторов-шаблонов можно снять, питание — сузить.
 
 import { useEffect, useMemo, useState } from 'react';
 import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
@@ -49,7 +49,7 @@ export default function RoomTypeEditor({
     const [content, setContent] = useState<RoomTypeContent>(roomType.content);
     const [rule, setRule] = useState<RuleFormState>(() => stateFromRoomType(roomType, settings));
     const [mealTypes, setMealTypes] = useState<string[] | null>(roomType.mealTypes);
-    // v2: замещаемые операторы — можно снять ограничение (пусто = не ограничивать).
+    // v2/v3: операторы-шаблоны (чьи предложения берутся шаблоном нашей цены) — можно снять ограничение (пусто = не ограничивать).
     const [operatorIds, setOperatorIds] = useState<number[]>((roomType.operatorIds || []).map(Number));
     const [changes, setChanges] = useState<ChangeLogItem[]>([]);
     const [changesLoading, setChangesLoading] = useState(true);
@@ -201,20 +201,20 @@ export default function RoomTypeEditor({
                             <span style={{ color: t.textTertiary }}>Наш оператор</span>
                             <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <span style={badge('accent')}>{ourOperator}</span>
-                                <span style={text.caption}>показывается у номера при любых датах и составе гостей · название меняется в разделе «Цена»</span>
+                                <span style={text.caption}>наше предложение показывается внутри номера рядом с предложениями Level.Travel при любых датах и составе гостей · название меняется в разделе «Цена»</span>
                             </span>
-                            <span style={{ color: t.textTertiary }}>Замещает операторов</span>
+                            <span style={{ color: t.textTertiary }}>Операторы-шаблоны</span>
                             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                                 {operatorIds.length ? (
                                     <>
                                         {(roomType.operatorNames?.length ? roomType.operatorNames : operatorIds.map(String)).map((name) => (
                                             <span key={name} style={badge('info')}>{name}</span>
                                         ))}
-                                        <span style={text.caption}>— их предложения убираются у номера, чтобы {ourOperator} не дублировался</span>
+                                        <span style={text.caption}>— шаблоном цены {ourOperator} берутся предложения только этих операторов; предложения Level.Travel у номера остаются</span>
                                         <button type="button" onClick={() => setOperatorIds([])} style={button('tertiary', 'sm')}>не ограничивать</button>
                                     </>
                                 ) : (
-                                    <span style={text.body}>не ограничено — предложения всех операторов у номера остаются</span>
+                                    <span style={text.body}>не ограничено — шаблон берётся из самого дешёвого предложения номера; предложения Level.Travel остаются</span>
                                 )}
                             </span>
                             <span style={{ color: t.textTertiary }}>Питание</span>
