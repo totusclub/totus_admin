@@ -9,8 +9,10 @@ import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/the
 import {
     getClientOrders,
     getClientOrder,
-    getAllOrders,
+    getOrder,
     getOrderAuthToken,
+    getInternalBookingId,
+    isInternalOrder,
     getPackageData,
     getOrderId,
     getOrderPrice,
@@ -19,6 +21,10 @@ import {
 } from '@/lib/orders-api';
 
 const PAGE_LIMIT = 5;
+
+// Токен Level Travel берётся только у конкретного заказа (GET /orders?order_id → lt_auth_token)
+// или из URL (?token= — со страницы заказа, «Все заказы клиента в LT»). Чужие токены и обход
+// всех пользователей (N × /user/orders) не используются: без номера заказа список не грузится.
 
 function LtOrdersContent() {
     const router = useRouter();
@@ -30,20 +36,15 @@ function LtOrdersContent() {
     const [error, setError] = useState<string | null>(null);
     const [loaded, setLoaded] = useState(false);
     const [token, setToken] = useState<string | null>(null);
-    const [searchId, setSearchId] = useState('');
+    const [searchId, setSearchId] = useState(() => searchParams.get('order_id') || '');
     const [searchActive, setSearchActive] = useState(false);
+    // Внутренний заказ (бронирование Arlekino) — Level Travel не участвует, показываем ссылку на бронирование.
+    const [internalBookingId, setInternalBookingId] = useState<number | null>(null);
 
-    // Resolve the single Level Travel auth token to use: from the URL, or the
-    // first order that has one saved.
-    const resolveToken = async (): Promise<string | null> => {
+    // Единственный источник токена без поиска — URL (?token= со страницы конкретного заказа).
+    const resolveToken = (): string | null => {
         const urlToken = searchParams.get('token');
-        if (urlToken) return urlToken;
-        const all = await getAllOrders();
-        for (const order of all) {
-            const orderToken = getOrderAuthToken(order);
-            if (orderToken) return orderToken;
-        }
-        return null;
+        return urlToken || null;
     };
 
     const load = async (page = 0, knownToken?: string) => {
@@ -51,11 +52,12 @@ function LtOrdersContent() {
             setLoading(true);
             setError(null);
             setSearchActive(false);
-            const activeToken = knownToken || token || (await resolveToken());
+            setInternalBookingId(null);
+            const activeToken = knownToken || token || resolveToken();
             if (!activeToken) {
-                setError('Не найден auth_token Level Travel');
+                // Без токена конкретного заказа список не грузим — подсказка «введите номер заказа».
                 setOrders([]);
-                setLoaded(true);
+                setLoaded(false);
                 return;
             }
             if (activeToken !== token) setToken(activeToken);
@@ -82,10 +84,24 @@ function LtOrdersContent() {
         try {
             setLoading(true);
             setError(null);
-            const activeToken = token || (await resolveToken());
-            if (!activeToken) {
-                setError('Не найден auth_token Level Travel');
+            setInternalBookingId(null);
+            // Токен только этого заказа: GET /orders?order_id → lt_auth_token (строка заказа в БД).
+            const dbOrder = await getOrder(id);
+            if ((dbOrder as any)?.error) {
+                throw new Error(String((dbOrder as any).error));
+            }
+            if (isInternalOrder(dbOrder, id)) {
+                setInternalBookingId(getInternalBookingId(dbOrder, id));
                 setOrders([]);
+                setSearchActive(true);
+                setLoaded(true);
+                return;
+            }
+            const activeToken = getOrderAuthToken(dbOrder);
+            if (!activeToken) {
+                setError(`Для заказа № ${id} нет auth_token Level Travel — токен не пришёл от Level.Travel при создании заказа`);
+                setOrders([]);
+                setSearchActive(true);
                 setLoaded(true);
                 return;
             }
@@ -107,11 +123,17 @@ function LtOrdersContent() {
 
     const clearSearch = () => {
         setSearchId('');
+        setInternalBookingId(null);
+        // Список клиента доступен только с токеном найденного заказа / из URL — иначе снова подсказка.
         load(0);
     };
 
     useEffect(() => {
-        load(0);
+        if (searchParams.get('order_id')) {
+            searchByOrderId();
+        } else {
+            load(0);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -137,10 +159,10 @@ function LtOrdersContent() {
                             Заказы Level Travel
                         </h1>
                         <div style={{ ...text.caption, fontWeight: 500 }}>
-                            Заказы напрямую из Level Travel (GET /client/orders)
+                            Заказы напрямую из Level Travel (GET /client/orders) — по auth_token конкретного заказа
                         </div>
                     </div>
-                    {!searchActive && (
+                    {!searchActive && token && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <button
                                 onClick={() => load(Math.max(0, pageNumber - 1))}
@@ -232,6 +254,59 @@ function LtOrdersContent() {
                     )}
                 </div>
 
+                {!loading && !loaded && !error && !internalBookingId && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginTop: 16,
+                            padding: '10px 12px',
+                            borderRadius: radius.sm,
+                            background: t.surfaceInset,
+                            border: `1px solid ${t.border}`,
+                            color: t.textSecondary,
+                            fontSize: 13,
+                            lineHeight: '18px',
+                        }}
+                    >
+                        <Icon name="info" size={16} />
+                        <span>
+                            Введите номер заказа — данные запрашиваются у Level Travel по auth_token этого заказа
+                            (GET /orders?order_id → lt_auth_token). Список всех заказов клиента открывается со страницы заказа.
+                        </span>
+                    </div>
+                )}
+
+                {internalBookingId != null && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginTop: 16,
+                            padding: '10px 12px',
+                            borderRadius: radius.sm,
+                            background: t.accentSoft,
+                            border: `1px solid ${t.accentBorder}`,
+                            color: t.textPrimary,
+                            fontSize: 13,
+                            lineHeight: '18px',
+                            flexWrap: 'wrap',
+                        }}
+                    >
+                        <Icon name="info" size={16} />
+                        <span>Бронирование Arlekino — Level.Travel не участвует.</span>
+                        <button
+                            onClick={() => router.push(`/rooms/booking/${internalBookingId}`)}
+                            style={{ ...button('tertiary', 'sm'), color: t.accent, padding: 0 }}
+                        >
+                            Открыть бронирование #{internalBookingId}
+                            <Icon name="chevronRight" size={16} />
+                        </button>
+                    </div>
+                )}
+
                 {error && (
                     <div
                         style={{
@@ -254,7 +329,7 @@ function LtOrdersContent() {
                 )}
             </div>
 
-            {loaded && !error && (
+            {loaded && !error && internalBookingId == null && (
                 <div style={cardStyle}>
                     <div style={{ ...text.cardTitle, marginBottom: 16 }}>
                         {searchActive
