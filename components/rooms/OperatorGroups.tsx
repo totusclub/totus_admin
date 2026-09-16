@@ -3,6 +3,7 @@
 // Вкладка «Номера Level.Travel»: группы по оператору → номера LT → наши Room Type под номером.
 // v2: наши Room Type видны под номером всегда (rooms[].room_types / operators[].rooms[].room_types из ответа),
 // даже если предложения оператора Arlekino у LT нет.
+// v3: на витрине отдельной карточки нет — наше предложение внутри номера рядом с предложениями Level.Travel; здесь как есть.
 
 import { useState, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
