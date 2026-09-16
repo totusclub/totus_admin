@@ -153,7 +153,7 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
             <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
                 <div>
                     <div style={text.cardTitle}>Как считается цена</div>
-                    <div style={text.caption}>Наше предложение {operator} появится у выбранного номера при любых датах и составе гостей</div>
+                    <div style={text.caption}>Наше предложение {operator} показывается внутри выбранного номера рядом с предложениями Level.Travel при любых датах и составе гостей</div>
                 </div>
                 <Segment<PricingMode>
                     fullWidth
@@ -232,7 +232,7 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
                     <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 14, display: 'grid', gap: 10 }}>
                         <div>
                             <div style={text.cardTitle}>Минимальная маржа</div>
-                            <div style={text.caption}>Ниже порога цена поднимается автоматически, комната помечается «Маржа ограничена»</div>
+                            <div style={text.caption}>Ниже порога цена поднимается автоматически, Room Type помечается «Маржа ограничена»</div>
                         </div>
                         <Segment<'global' | 'own'>
                             fullWidth
@@ -284,7 +284,7 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: radius.sm, background: t.surfaceInset }}>
                     <div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>Активность</div>
-                        <div style={text.caption}>Показывать на витрине у выбранного номера Level.Travel</div>
+                        <div style={text.caption}>Показывать наше предложение внутри выбранного номера рядом с предложениями Level.Travel</div>
                     </div>
                     <Toggle checked={value.active} onChange={(v) => set('active', v)} label="Активность" />
                 </div>
