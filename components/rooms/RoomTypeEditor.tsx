@@ -3,6 +3,7 @@
 // Редактор Room Type одной страницей: якоря Источник / Контент / Цена / История правок,
 // справа live-preview; действия «Сохранить» (PUT), «Дублировать», «Сбросить контент к оригиналу», «Удалить».
 // v2: режим цены fixed/rule, название оператора; ограничение операторов (замещение) можно снять, питание — сузить.
+// §2.3: блок «Продажи» в разделе «Цена» — «продавать только наши предложения» (скрыть Level.Travel).
 
 import { useEffect, useMemo, useState } from 'react';
 import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
@@ -12,12 +13,12 @@ import {
     type ChangeLogItem, type LtOffer, type RoomSettings, type RoomType, type RoomTypeContent,
 } from '@/lib/rooms-api';
 import ContentForm from './ContentForm';
-import RuleForm, { DEFAULT_OPERATOR_NAME, pricingFromState, pricingBodyFromState, stateFromRoomType, validateRuleState, type RuleFormState } from './RuleForm';
+import RuleForm, { DEFAULT_OPERATOR_NAME, EXCLUSIVE_WARNING, pricingFromState, pricingBodyFromState, stateFromRoomType, validateRuleState, type RuleFormState } from './RuleForm';
 import PricePreview from './PricePreview';
 import DuplicateDialog from './DuplicateDialog';
 import { ChangeLogList } from './PriceHistory';
 import { roomMeta } from './RoomCardLT';
-import { STATUS_META, roomTypeStatus, Chip, Stars, ConfirmDialog, formatDateTime, mealLabel } from './shared';
+import { STATUS_META, roomTypeStatus, Chip, Stars, ConfirmDialog, ExclusiveBadge, formatDateTime, mealLabel } from './shared';
 
 const SECTIONS = [
     { id: 'source', label: 'Источник' },
@@ -125,6 +126,8 @@ export default function RoomTypeEditor({
                 operatorName: body.operatorName,
                 rule: body.rule || undefined,
                 packageTypes: body.packageTypes,
+                exclusive: body.exclusive,
+                exclusiveScope: body.exclusiveScope,
                 badge: rule.badge.trim() || settings?.badge || 'Totus',
                 active: rule.active,
             });
@@ -185,9 +188,10 @@ export default function RoomTypeEditor({
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(320px, 1fr)', gap: 20, alignItems: 'start' }}>
                 <div style={{ display: 'grid', gap: 16 }}>
                     <section id="rt-source" style={{ ...cardStyle, scrollMarginTop: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                             <h2 style={{ ...text.sectionTitle, margin: 0 }}>Источник</h2>
                             <StatusBadge label={st.label} tone={st.tone} />
+                            <ExclusiveBadge rt={roomType} />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', rowGap: 8, columnGap: 12, fontSize: 14 }}>
                             <span style={{ color: t.textTertiary }}>Отель</span>
@@ -202,6 +206,17 @@ export default function RoomTypeEditor({
                             <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <span style={badge('accent')}>{ourOperator}</span>
                                 <span style={text.caption}>показывается у номера при любых датах и составе гостей · название меняется в разделе «Цена»</span>
+                            </span>
+                            <span style={{ color: t.textTertiary }}>Продажи</span>
+                            <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                {rule.exclusive ? (
+                                    <>
+                                        <span style={badge('warning')}>{rule.exclusiveScope === 'hotel' ? 'Только наши · весь отель' : 'Только наши'}</span>
+                                        <span style={text.caption}>{EXCLUSIVE_WARNING}</span>
+                                    </>
+                                ) : (
+                                    <span style={text.body}>продаются и наши предложения, и Level.Travel — переключается в разделе «Цена», блок «Продажи»</span>
+                                )}
                             </span>
                             <span style={{ color: t.textTertiary }}>Замещает операторов</span>
                             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
