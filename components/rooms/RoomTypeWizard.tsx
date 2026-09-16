@@ -2,8 +2,8 @@
 
 // Мастер «Новый Room Type на основе номера» (модал поверх страницы отеля, 3 шага). v2:
 // 1) источник — выбранный номер Level.Travel (карточка; обязателен), необязательный сворачиваемый блок
-//    «Ограничить операторов/питание» (по умолчанию пусто = не ограничивать: наше предложение появится у номера
-//    при любых датах и составе гостей); 2) контент — предзаполнен из LT, фото LT или свои;
+//    «Ограничить операторов/питание» (по умолчанию пусто = не ограничивать: наше предложение показывается внутри номера
+//    рядом с предложениями Level.Travel при любых датах и составе гостей); 2) контент — предзаполнен из LT, фото LT или свои;
 // 3) цена — «Фиксированная цена Arlekino» (по умолчанию) ⟷ «Правило от цены Level.Travel» + live-preview → POST /room-types.
 
 import { useMemo, useState } from 'react';
@@ -93,7 +93,7 @@ export default function RoomTypeWizard({
     const [restrict, setRestrict] = useState(false);
     const [selected, setSelected] = useState<Set<string>>(() => new Set());
     const ltImages = useMemo(() => ltRoomImages(room), [room]);
-    // Название предзаполняется именем исходного номера (name_ru) — на витрине наши комнаты не помечаются.
+    // Название предзаполняется именем исходного номера (name_ru) — v3: на витрине карточка номера одна (LT), контент Room Type остаётся для админки.
     const [content, setContent] = useState<RoomTypeContent>(() => contentFromLtRoom(room));
     const [rule, setRule] = useState<RuleFormState>(() => defaultRuleState(settings));
     const [error, setError] = useState<string | null>(null);
@@ -211,7 +211,7 @@ export default function RoomTypeWizard({
                         <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: radius.sm, background: t.accentSoft, color: t.textPrimary, fontSize: 13, lineHeight: '18px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                             <Icon name="info" size={16} style={{ marginTop: 1, flexShrink: 0 }} />
                             <span>
-                                Наше предложение {ourOperator} появится у этого номера при любых датах и составе гостей — независимо от того, какие операторы вернул Level.Travel.
+                                Наше предложение {ourOperator} показывается внутри этого номера рядом с предложениями Level.Travel при любых датах и составе гостей — предложения Level.Travel не удаляются.
                                 Цена задаётся на шаге «Цена»; шаблон предложения — самое дешёвое предложение номера.
                             </span>
                         </div>
@@ -231,8 +231,8 @@ export default function RoomTypeWizard({
                         {restrict ? (
                             <div style={{ padding: 16, display: 'grid', gap: 10 }}>
                                 <div style={text.caption}>
-                                    Отметьте предложения, если нужно <b>заместить</b> конкретных операторов (их предложения будут убраны у номера, чтобы {ourOperator} не дублировался)
-                                    или ограничить типы питания. Пусто — не ограничивать.
+                                    Отметьте предложения, если шаблоном цены {ourOperator} нужно брать предложения только конкретных операторов
+                                    или ограничить типы питания. Предложения Level.Travel у номера остаются. Пусто — не ограничивать.
                                 </div>
                                 {sortedOffers.length ? (
                                     <TableWrap>
@@ -267,7 +267,7 @@ export default function RoomTypeWizard({
                                 )}
                                 {chosen.length ? (
                                     <div style={{ ...text.caption }}>
-                                        Замещаем операторов: {operatorNames.join(', ')} · питание: {mealTypes ? mealTypes.join(', ') : 'все'}.
+                                        Операторы-шаблоны: {operatorNames.join(', ')} · питание: {mealTypes ? mealTypes.join(', ') : 'все'}.
                                         <button type="button" onClick={() => setSelected(new Set())} style={{ ...button('tertiary', 'sm'), marginLeft: 8 }}>Сбросить</button>
                                     </div>
                                 ) : null}
