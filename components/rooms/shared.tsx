@@ -7,9 +7,9 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import { t, radius, text, button, badge } from '@/lib/theme';
 import type { BadgeTone } from '@/components/notifications/shared';
-import { formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
+import { exclusiveLabel, formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
 
-/* ── Справочники ──────────────────────────────────────────────────────── */
+/* ── Справочники ──────────────────────────────────────── */
 
 export type ListStatus = RoomTypeStatus | 'never_seen' | 'skipped';
 
@@ -68,12 +68,26 @@ export function roomTypeStatus(rt: RoomType): ListStatus {
     return 'active';
 }
 
+/** §2.3: «Только наши» / «Только наши · весь отель»; null — флаг выключен. */
+export function exclusiveBadgeLabel(rt: Pick<RoomType, 'exclusive' | 'exclusiveScope'> | null | undefined): string | null {
+    return exclusiveLabel(rt);
+}
+
+/** §2.3: пояснение под бейджем — что именно скрыто. */
+export function exclusiveText(rt: Pick<RoomType, 'exclusive' | 'exclusiveScope'> | null | undefined): string {
+    if (!rt?.exclusive) return '';
+    return rt.exclusiveScope === 'hotel'
+        ? 'Продаются только наши предложения — Level.Travel скрыт во всём отеле'
+        : 'Продаются только наши предложения — Level.Travel скрыт в этом номере';
+}
+
 /** Подпись статуса на карточке под номером. */
 export function statusText(rt: RoomType): string {
     const status = roomTypeStatus(rt);
     const templates = rt.operatorIds?.length ? ` · шаблон: ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператор ${rt.operatorIds.join(', ')}`}` : '';
-    if (status === 'fixed') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · фиксированная цена${templates}`;
-    if (status === 'active') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · цена по правилу${templates}`;
+    const only = rt.exclusive ? ` · только наши предложения (Level.Travel скрыт ${rt.exclusiveScope === 'hotel' ? 'во всём отеле' : 'в этом номере'})` : '';
+    if (status === 'fixed') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · фиксированная цена${templates}${only}`;
+    if (status === 'active') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · цена по правилу${templates}${only}`;
     if (status === 'source_missing') return 'Источник не найден на эти даты';
     if (status === 'no_offers') return 'Номер есть в выдаче, но предложений нет — наше предложение не добавляется';
     if (status === 'no_pricing') return 'Цена или правило не заданы — откройте «Изменить» и сохраните цену';
@@ -117,7 +131,7 @@ export function pricingModeLabel(rt: Pick<RoomType, 'pricingMode'>): string {
     return rt.pricingMode === 'fixed' ? 'Фиксированная цена' : 'Правило от цены Level.Travel';
 }
 
-/* ── Даты ─────────────────────────────────────────────────────────────── */
+/* ── Даты ────────────────────────────────────────────── */
 
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
@@ -184,7 +198,7 @@ export function timeAgo(value?: string | null): string {
 /** Текст записи истории правок из `changes` JSON. */
 export function describeChange(item: ChangeLogItem): string {
     const c = item.changes || {};
-    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · шаблон от операторов ${(c.operators as unknown[]).join(', ')}` : ''}`;
+    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · шаблон от операторов ${(c.operators as unknown[]).join(', ')}` : ''}${c.exclusive ? ' · только наши предложения (Level.Travel скрыт)' : ''}`;
     if (c.deleted) return `удалён${c.name ? ` («${String(c.name)}»)` : ''}`;
     if (c.duplicatedFrom) return `создан как копия Room Type #${String(c.duplicatedFrom)}`;
     const names: Record<string, string> = {
@@ -192,6 +206,7 @@ export function describeChange(item: ChangeLogItem): string {
         minMarginType: 'тип мин. маржи', minMarginValue: 'мин. маржа', badge: 'бейдж', active: 'активность', sortOrder: 'порядок',
         packageTypes: 'тип пакета', operatorIds: 'операторы-шаблоны', mealTypes: 'питание',
         pricingMode: 'режим цены', fixedPrice: 'фиксированная цена', fixedPriceUnit: 'единица фикс. цены', operatorName: 'название оператора', operatorId: 'ID оператора',
+        exclusive: 'только наши предложения (Level.Travel скрыт)', exclusiveScope: 'область «только наши предложения»',
         'content.nameRu': 'название RU', 'content.nameEn': 'название EN', 'content.accommodation': 'размещение', 'content.area': 'площадь',
         'content.view': 'вид', 'content.description': 'описание', 'content.facilities': 'удобства', 'content.images': 'фотографии',
     };
@@ -202,6 +217,8 @@ export function describeChange(item: ChangeLogItem): string {
         if (v === 'rule') return 'правило';
         if (v === 'per_night') return 'за ночь';
         if (v === 'total') return 'за проживание';
+        if (v === 'room') return 'только этот номер';
+        if (v === 'hotel') return 'весь отель';
         if (Array.isArray(v)) return v.length > 3 ? `${v.length} эл.` : v.map((x) => (typeof x === 'object' ? (x as { name?: string })?.name || '…' : String(x))).join(', ');
         if (typeof v === 'object') return '…';
         const s = String(v);
@@ -216,7 +233,7 @@ export function describeChange(item: ChangeLogItem): string {
     return parts.join(' · ') || 'изменение';
 }
 
-/* ── Хуки ─────────────────────────────────────────────────────────────── */
+/* ── Хуки ────────────────────────────────────────────── */
 
 export function useDebounced<T>(value: T, delay = 400): T {
     const [debounced, setDebounced] = useState(value);
@@ -227,7 +244,7 @@ export function useDebounced<T>(value: T, delay = 400): T {
     return debounced;
 }
 
-/* ── Примитивы ────────────────────────────────────────────────────────── */
+/* ── Примитивы ─────────────────────────────────────── */
 
 export function Stars({ count, size = 14 }: { count: number; size?: number }) {
     const n = Math.max(0, Math.min(5, Math.round(count)));
@@ -402,6 +419,17 @@ export function BrandBadge({ label }: { label?: string | null }) {
     );
 }
 
+/** §2.3: «Только наши» / «Только наши · весь отель» — у Room Type с флагом «продавать только наши предложения». */
+export function ExclusiveBadge({ rt }: { rt: Pick<RoomType, 'exclusive' | 'exclusiveScope'> }) {
+    const label = exclusiveBadgeLabel(rt);
+    if (!label) return null;
+    return (
+        <span title={exclusiveText(rt)} style={{ ...badge('warning'), padding: '3px 10px' }}>
+            {label}
+        </span>
+    );
+}
+
 /** Пустое состояние списка. */
 export function Empty({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
     return (
@@ -443,7 +471,7 @@ export function PricePair({ provider, final, margin, compact, fixed, perNight }:
     );
 }
 
-/* ── Таблицы ──────────────────────────────────────────────────────────── */
+/* ── Таблицы ─────────────────────────────────────────── */
 
 export const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 export const thStyle: CSSProperties = {
