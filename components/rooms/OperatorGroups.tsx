@@ -4,11 +4,12 @@
 // v2: наши Room Type видны под номером всегда (rooms[].room_types / operators[].rooms[].room_types из ответа),
 // даже если предложения оператора Arlekino у LT нет.
 // v3: на витрине отдельной карточки нет — наше предложение внутри номера рядом с предложениями Level.Travel; здесь как есть.
+// §2.3: если у отеля включён флаг «только наши предложения» — строка над списком и пометка «Level.Travel скрыт» у закрытых номеров.
 
 import { useState, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import { t, radius, text, badge } from '@/lib/theme';
-import type { HotelRoomsResult, OperatorGroup, OperatorRoom, RoomType } from '@/lib/rooms-api';
+import { isRoomExclusive, type HotelRoomsResult, type OperatorGroup, type OperatorRoom, type RoomType } from '@/lib/rooms-api';
 import RoomCardLT from './RoomCardLT';
 import RoomTypeCard from './RoomTypeCard';
 import { Empty, plural } from './shared';
@@ -24,6 +25,14 @@ export function roomTypesFor(result: HotelRoomsResult, room: OperatorRoom, opera
         : ((result.rooms || []).find((r) => Number(r.room?.id) === Number(room.room_id))?.room_types || []).map(Number);
     if (ids.length) return all.filter((rt) => ids.includes(Number(rt.id)));
     return all.filter((rt) => Number(rt.sourceRoomId) === Number(room.room_id) && (!(rt.operatorIds || []).length || (rt.operatorIds || []).map(Number).includes(Number(operatorId))));
+}
+
+/** §2.3: закрыт ли номер для Level.Travel — по флагу самого номера, иначе по сводке `exclusive` отеля. */
+export function roomExclusive(result: HotelRoomsResult, room: OperatorRoom): boolean {
+    if (room.exclusive) return true;
+    const byRooms = (result.rooms || []).find((r) => Number(r.room?.id) === Number(room.room_id));
+    if (byRooms?.exclusive) return true;
+    return isRoomExclusive(result.exclusive, room.room_id);
 }
 
 function GroupHeader({ group, open, onToggle }: { group: OperatorGroup; open: boolean; onToggle: () => void }) {
@@ -77,6 +86,7 @@ export default function OperatorGroups({
 }) {
     const groups = result.operators || [];
     const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set(groups.slice(1).map((g) => g.operator_id)));
+    const hotelExclusive = result.exclusive?.active === true;
 
     if (!groups.length) {
         return <Empty title="Level.Travel не вернул номера на эти даты" hint="Попробуйте другие даты или проверьте, что поиск ещё не устарел (выдача живёт ~2 часа)" />;
@@ -91,6 +101,17 @@ export default function OperatorGroups({
 
     return (
         <div style={{ display: 'grid', gap: 12 }}>
+            {hotelExclusive ? (
+                <div style={{ padding: '10px 12px', borderRadius: radius.sm, background: t.warningSoft, color: t.textPrimary, fontSize: 13, lineHeight: '18px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <Icon name="info" size={16} style={{ marginTop: 1, flexShrink: 0 }} />
+                    <span>
+                        В этом отеле продаются только наши предложения (Level.Travel скрыт)
+                        {result.exclusive?.scope === 'hotel'
+                            ? ' — во всех номерах отеля.'
+                            : ` — в номерах: ${(result.exclusive?.rooms || []).join(', ') || '—'}.`}
+                    </span>
+                </div>
+            ) : null}
             {groups.map((group) => {
                 const open = !collapsed.has(group.operator_id);
                 return (
@@ -99,11 +120,20 @@ export default function OperatorGroups({
                         {open
                             ? group.rooms.map((room) => {
                                   const ours = roomTypesFor(result, room, group.operator_id);
-                                  const children: ReactNode = ours.length
-                                      ? ours.map((rt) => (
-                                            <RoomTypeCard key={rt.id} rt={rt} busy={busyId === rt.id} onEdit={() => onEdit(rt)} onDuplicate={() => onDuplicate(rt)} onToggle={(active) => onToggle(rt, active)} />
-                                        ))
-                                      : null;
+                                  const closed = roomExclusive(result, room);
+                                  const children: ReactNode = closed || ours.length ? (
+                                      <>
+                                          {closed ? (
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                  <span style={badge('warning')}>Level.Travel скрыт</span>
+                                                  <span style={text.caption}>предложения Level.Travel в этом номере не показываются и не бронируются</span>
+                                              </div>
+                                          ) : null}
+                                          {ours.map((rt) => (
+                                              <RoomTypeCard key={rt.id} rt={rt} busy={busyId === rt.id} onEdit={() => onEdit(rt)} onDuplicate={() => onDuplicate(rt)} onToggle={(active) => onToggle(rt, active)} />
+                                          ))}
+                                      </>
+                                  ) : null;
                                   return (
                                       <RoomCardLT key={`${group.operator_id}-${room.room_id}`} item={room} operatorName={group.operator_name} nights={nights} onCreate={() => onCreate(room, group)}>
                                           {children}
