@@ -22,6 +22,7 @@ const LINKS: NavLink[] = [
     { href: '/lt-orders', label: 'Level Travel', icon: 'globe' },
     { href: '/order-requests', label: 'Обращения', icon: 'mail' },
     { href: '/rooms', label: 'Отели и номера', icon: 'hotel' },
+    { href: '/operators', label: 'Операторы', icon: 'list' },
     { href: '/notifications', label: 'Уведомления', icon: 'bell' },
     { href: '/pages', label: 'Страницы', icon: 'file' },
     { href: '/home-content', label: 'Главная', icon: 'home' },

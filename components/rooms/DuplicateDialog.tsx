@@ -1,12 +1,13 @@
 'use client';
 
 // Модал «Дублировать Room Type» → POST /room-types/:id/duplicate (копия создаётся выключенной;
-// v2: режим цены, фиксированная цена и оператор копируются на сервере всегда).
+// v2: режим цены, фиксированная цена и оператор копируются на сервере всегда;
+// §2.3: флаг «только наши предложения» и его область тоже копируются).
 
 import { useState } from 'react';
 import { button, text } from '@/lib/theme';
 import { Modal, Field, ErrorBox, compactInput, checkboxRow } from '@/components/notifications/shared';
-import { duplicateRoomType, pricingLabelOf, type RoomType } from '@/lib/rooms-api';
+import { duplicateRoomType, exclusiveLabel, pricingLabelOf, type RoomType } from '@/lib/rooms-api';
 
 export default function DuplicateDialog({
     roomType,
@@ -25,6 +26,8 @@ export default function DuplicateDialog({
     const [openEditor, setOpenEditor] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const exclusive = exclusiveLabel(roomType);
 
     const submit = async () => {
         setBusy(true);
@@ -55,6 +58,11 @@ export default function DuplicateDialog({
                     </label>
                     <div style={text.caption}>
                         Режим цены «{pricingLabelOf(roomType)}», фиксированная цена и оператор {roomType.operatorName || 'Arlekino'} копируются всегда; номер-источник, ограничения операторов/питания — те же.
+                    </div>
+                    <div style={text.caption}>
+                        {exclusive
+                            ? `Флаг «продавать только наши предложения» тоже копируется (${exclusive}); копия создаётся выключенной, поэтому Level.Travel скроется только после её включения.`
+                            : 'Флаг «продавать только наши предложения» копируется — сейчас он выключен, копия тоже будет без него.'}
                     </div>
                 </div>
                 <Field label="Фотографии">
