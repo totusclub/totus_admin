@@ -134,7 +134,7 @@ export default function OperatorEditor({ operator, onReload }: { operator: Opera
 
           <div>
             <div style={{ ...text.caption }}>operator_id на витрине</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: t.textPrimary, ...text.mono }}>{operator.operatorId}</div>
+            <div style={{ ...text.mono, fontSize: 22, fontWeight: 700, color: t.textPrimary }}>{operator.operatorId}</div>
             <div style={{ ...text.caption }}>по нему Room Type связаны с оператором</div>
           </div>
 
