@@ -157,6 +157,7 @@ export default function RoomTypeWizard({
                 fixedPrice: body.fixedPrice,
                 fixedPriceUnit: body.fixedPriceUnit,
                 operatorName: body.operatorName,
+                operatorId: body.operatorId,
                 rule: body.rule || undefined,
                 packageTypes: body.packageTypes,
                 badge: rule.badge.trim() || settings?.badge || 'Totus',
