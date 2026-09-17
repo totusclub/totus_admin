@@ -2,7 +2,7 @@
 
 // Редактор Room Type одной страницей: якоря Источник / Контент / Цена / История правок,
 // справа live-preview; действия «Сохранить» (PUT), «Дублировать», «Сбросить контент к оригиналу», «Удалить».
-// v2: режим цены fixed/rule, название оператора; ограничение операторов (замещение) можно снять, питание — сузить.
+// v2: режим цены fixed/rule, оператор из справочника; ограничение операторов (замещение) можно снять, питание — сузить.
 
 import { useEffect, useMemo, useState } from 'react';
 import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
@@ -123,6 +123,7 @@ export default function RoomTypeEditor({
                 fixedPrice: body.fixedPrice,
                 fixedPriceUnit: body.fixedPriceUnit,
                 operatorName: body.operatorName,
+                operatorId: body.operatorId,
                 rule: body.rule || undefined,
                 packageTypes: body.packageTypes,
                 badge: rule.badge.trim() || settings?.badge || 'Totus',
@@ -201,7 +202,7 @@ export default function RoomTypeEditor({
                             <span style={{ color: t.textTertiary }}>Наш оператор</span>
                             <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <span style={badge('accent')}>{ourOperator}</span>
-                                <span style={text.caption}>показывается у номера при любых датах и составе гостей · название меняется в разделе «Цена»</span>
+                                <span style={text.caption}>показывается у номера при любых датах и составе гостей · оператор выбирается в разделе «Цена»</span>
                             </span>
                             <span style={{ color: t.textTertiary }}>Замещает операторов</span>
                             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
