@@ -2,16 +2,27 @@
 
 // Цена и витрина (шаг 3 мастера и секция редактора). v2: переключатель режима цены —
 // «Фиксированная цена Arlekino» (₽ + за проживание / за ночь, по умолчанию) ⟷ «Правило от цены Level.Travel»
-// (% / ₽, значение, округление, min/max, минимальная маржа глобальная / своя); название оператора, бейдж, активность.
+// (% / ₽, значение, округление, min/max, минимальная маржа глобальная / своя); оператор, бейдж, активность.
+//
+// Оператор выбирается из справочника «Операторы» (lib/operators-api.ts): в Room Type сохраняются
+// operatorId и operatorName выбранного оператора — по operatorId Room Type и связан с оператором.
+// Пока справочник недоступен (миграция не прогнана) поле остаётся свободной строкой, как раньше.
+//
+// §2.3: блок «Продажи» — «продавать только наши предложения» (скрыть Level.Travel) с областью номер / весь отель.
 
+import { useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import { t, radius, text, cardStyle, button } from '@/lib/theme';
-import { Field, Toggle, compactInput, checkboxRow } from '@/components/notifications/shared';
-import { formatMoney, type FixedPriceUnit, type PackageType, type PricingInput, type PricingMode, type RoomSettings, type RoomType, type RoomTypeRuleInput, type Rounding, type RuleType } from '@/lib/rooms-api';
+import { Field, Toggle, compactInput, checkboxRow, selectStyle } from '@/components/notifications/shared';
+import { formatMoney, type ExclusiveScope, type FixedPriceUnit, type PackageType, type PricingInput, type PricingMode, type RoomSettings, type RoomType, type RoomTypeRuleInput, type Rounding, type RuleType } from '@/lib/rooms-api';
+import { listOperators, type Operator } from '@/lib/operators-api';
 import { Segment } from './shared';
 
 export const DEFAULT_OPERATOR_NAME = 'Arlekino';
 export const FIXED_PRICE_MAX = 100000000;
+
+/** §2.3: предупреждение под блоком «Продажи» — одинаковое в мастере и редакторе. */
+export const EXCLUSIVE_WARNING = 'Предложения Level.Travel в этом номере/отеле перестанут показываться и их нельзя будет забронировать. В нашей базе будут регистрироваться только бронирования Arlekino.';
 
 export interface RuleFormState {
     /** v2: режим цены (по умолчанию fixed). */
@@ -21,8 +32,14 @@ export interface RuleFormState {
     fixedPriceUnit: FixedPriceUnit;
     /** Название нашего оператора на витрине. */
     operatorName: string;
+    /** operator_id выбранного оператора (990000+); null — оператор из справочника не выбран. */
+    operatorId: number | null;
     /** true — packageTypes пустые (любой тип поиска); false — только «отель» (без перелёта). */
     anySearch: boolean;
+    /** §2.3: продавать только наши предложения (скрыть Level.Travel). По умолчанию выключено. */
+    exclusive: boolean;
+    /** §2.3: область действия флага — только этот номер (по умолчанию) | весь отель. */
+    exclusiveScope: ExclusiveScope;
     ruleType: RuleType;
     ruleValue: string;
     rounding: Rounding;
@@ -41,7 +58,10 @@ export function defaultRuleState(settings?: RoomSettings | null): RuleFormState 
         fixedPrice: '',
         fixedPriceUnit: 'total',
         operatorName: DEFAULT_OPERATOR_NAME,
+        operatorId: null,
         anySearch: true,
+        exclusive: false,
+        exclusiveScope: 'room',
         ruleType: 'percent',
         ruleValue: '-10',
         rounding: ([1, 10, 100].includes(Number(settings?.rounding)) ? Number(settings?.rounding) : 1) as Rounding,
@@ -62,7 +82,10 @@ export function stateFromRoomType(rt: RoomType, settings?: RoomSettings | null):
         fixedPrice: rt.fixedPrice === null || rt.fixedPrice === undefined ? '' : String(rt.fixedPrice),
         fixedPriceUnit: rt.fixedPriceUnit === 'per_night' ? 'per_night' : 'total',
         operatorName: rt.operatorName || DEFAULT_OPERATOR_NAME,
+        operatorId: rt.operatorId === null || rt.operatorId === undefined ? null : Number(rt.operatorId),
         anySearch: !(rt.packageTypes || []).length,
+        exclusive: Boolean(rt.exclusive),
+        exclusiveScope: rt.exclusiveScope === 'hotel' ? 'hotel' : 'room',
         ruleType: rt.ruleType || 'percent',
         ruleValue: rt.ruleValue === null || rt.ruleValue === undefined ? '-10' : String(rt.ruleValue),
         rounding: ([1, 10, 100].includes(Number(rt.rounding)) ? Number(rt.rounding) : 1) as Rounding,
@@ -103,16 +126,19 @@ export function pricingFromState(s: RuleFormState): PricingInput | null {
     return rule ? { pricingMode: 'rule', rule } : null;
 }
 
-/** Поля цены для POST/PUT /room-types: режим, фикс. цена, оператор; правило — только в режиме rule. */
-export function pricingBodyFromState(s: RuleFormState): { pricingMode: PricingMode; fixedPrice: number | null; fixedPriceUnit: FixedPriceUnit; operatorName: string; rule: RoomTypeRuleInput | null; packageTypes: PackageType[] } {
+/** Поля цены для POST/PUT /room-types: режим, фикс. цена, оператор, флаг «только наши»; правило — только в режиме rule. */
+export function pricingBodyFromState(s: RuleFormState): { pricingMode: PricingMode; fixedPrice: number | null; fixedPriceUnit: FixedPriceUnit; operatorName: string; operatorId: number | null; rule: RoomTypeRuleInput | null; packageTypes: PackageType[]; exclusive: boolean; exclusiveScope: ExclusiveScope } {
     const price = Number(s.fixedPrice);
     return {
         pricingMode: s.pricingMode,
         fixedPrice: s.fixedPrice.trim() === '' || !Number.isFinite(price) ? null : price,
         fixedPriceUnit: s.fixedPriceUnit,
         operatorName: s.operatorName.trim() || DEFAULT_OPERATOR_NAME,
+        operatorId: s.operatorId,
         rule: s.pricingMode === 'rule' ? ruleFromState(s) : null,
         packageTypes: s.anySearch ? [] : ['hotel'],
+        exclusive: s.exclusive,
+        exclusiveScope: s.exclusive && s.exclusiveScope === 'hotel' ? 'hotel' : 'room',
     };
 }
 
@@ -147,6 +173,37 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
 
     const fixed = value.pricingMode === 'fixed';
     const operator = value.operatorName.trim() || DEFAULT_OPERATOR_NAME;
+
+    // Справочник операторов. null — ещё грузится; пустой массив — справочника нет (миграция не прогнана),
+    // тогда поле работает как раньше — свободной строкой.
+    const [operators, setOperators] = useState<Operator[] | null>(null);
+    useEffect(() => {
+        let alive = true;
+        listOperators()
+            .then((d) => {
+                if (alive) setOperators(d.available ? d.operators : []);
+            })
+            .catch(() => {
+                if (alive) setOperators([]);
+            });
+        return () => {
+            alive = false;
+        };
+    }, []);
+
+    // Новый Room Type (или строка до появления справочника): подставляем оператора по имени,
+    // иначе первого активного — чтобы поле не оставалось пустым.
+    useEffect(() => {
+        if (!operators || !operators.length) return;
+        if (value.operatorId && operators.some((o) => o.operatorId === value.operatorId)) return;
+        const pick = operators.find((o) => o.name === value.operatorName.trim()) || operators.find((o) => o.active) || operators[0];
+        if (!pick) return;
+        if (pick.operatorId === value.operatorId && pick.name === value.operatorName) return;
+        onChange({ ...value, operatorId: pick.operatorId, operatorName: pick.name });
+    }, [operators, value, onChange]);
+
+    const hasCatalog = Boolean(operators && operators.length);
+    const unknownOperator = hasCatalog && value.operatorId !== null && !(operators || []).some((o) => o.operatorId === value.operatorId);
 
     return (
         <div style={{ display: 'grid', gap: 16 }}>
@@ -258,11 +315,81 @@ export default function RuleForm({ value, onChange, settings }: { value: RuleFor
             ) : null}
 
             <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
+                <div>
+                    <div style={text.cardTitle}>Продажи</div>
+                    <div style={text.caption}>Какие предложения показывать на витрине у этого номера Level.Travel</div>
+                </div>
+                <label style={checkboxRow}>
+                    <input type="checkbox" checked={value.exclusive} onChange={(e) => set('exclusive', e.target.checked)} />
+                    Продавать только наши предложения (скрыть Level.Travel)
+                </label>
+                {value.exclusive ? (
+                    <Field label="Где скрывать Level.Travel">
+                        <div role="radiogroup" style={{ display: 'grid', gap: 6, paddingTop: 4 }}>
+                            <label style={checkboxRow}>
+                                <input type="radio" name="exclusiveScope" checked={value.exclusiveScope !== 'hotel'} onChange={() => set('exclusiveScope', 'room')} />
+                                только этот номер
+                            </label>
+                            <label style={checkboxRow}>
+                                <input type="radio" name="exclusiveScope" checked={value.exclusiveScope === 'hotel'} onChange={() => set('exclusiveScope', 'hotel')} />
+                                весь отель
+                            </label>
+                        </div>
+                    </Field>
+                ) : null}
+                <div
+                    style={
+                        value.exclusive
+                            ? { padding: '10px 12px', borderRadius: radius.sm, background: t.warningSoft, color: t.textPrimary, fontSize: 13, lineHeight: '18px' }
+                            : { ...text.caption }
+                    }
+                >
+                    {EXCLUSIVE_WARNING}
+                </div>
+            </div>
+
+            <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 14 }}>
                 <div style={text.cardTitle}>Витрина</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Field label="Название оператора" hint="так наше предложение подписано на витрине">
-                        <input style={compactInput} value={value.operatorName} onChange={(e) => set('operatorName', e.target.value)} maxLength={128} placeholder={DEFAULT_OPERATOR_NAME} />
-                    </Field>
+                    {hasCatalog ? (
+                        <Field
+                            label="Оператор"
+                            hint={
+                                <>
+                                    так наше предложение подписано на витрине ·{' '}
+                                    <a href="/operators" style={{ color: t.accent, textDecoration: 'none' }}>
+                                        управлять операторами
+                                    </a>
+                                </>
+                            }
+                        >
+                            <select
+                                style={selectStyle}
+                                value={value.operatorId === null ? '' : String(value.operatorId)}
+                                onChange={(e) => {
+                                    const id = Number(e.target.value);
+                                    const op = (operators || []).find((o) => o.operatorId === id);
+                                    onChange({ ...value, operatorId: op ? op.operatorId : null, operatorName: op ? op.name : value.operatorName });
+                                }}
+                            >
+                                {unknownOperator ? (
+                                    <option value={String(value.operatorId)}>
+                                        {operator} · {value.operatorId} (нет в справочнике)
+                                    </option>
+                                ) : null}
+                                {(operators || []).map((o) => (
+                                    <option key={o.id} value={String(o.operatorId)}>
+                                        {o.name} · {o.operatorId}
+                                        {o.active ? '' : ' — выключен'}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                    ) : (
+                        <Field label="Название оператора" hint="так наше предложение подписано на витрине">
+                            <input style={compactInput} value={value.operatorName} onChange={(e) => set('operatorName', e.target.value)} maxLength={128} placeholder={DEFAULT_OPERATOR_NAME} />
+                        </Field>
+                    )}
                     <Field label="Бейдж" hint="служебная пометка, на витрине не показывается">
                         <input style={compactInput} value={value.badge} onChange={(e) => set('badge', e.target.value)} maxLength={64} placeholder="Totus" />
                     </Field>

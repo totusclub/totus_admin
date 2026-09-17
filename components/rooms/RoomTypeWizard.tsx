@@ -5,6 +5,7 @@
 //    «Ограничить операторов/питание» (по умолчанию пусто = не ограничивать: наше предложение показывается внутри номера
 //    рядом с предложениями Level.Travel при любых датах и составе гостей); 2) контент — предзаполнен из LT, фото LT или свои;
 // 3) цена — «Фиксированная цена Arlekino» (по умолчанию) ⟷ «Правило от цены Level.Travel» + live-preview → POST /room-types.
+// §2.3: на шаге «Цена» блок «Продажи» — «продавать только наши предложения» (по умолчанию выключено) и выбор оператора из справочника.
 
 import { useMemo, useState } from 'react';
 import Icon from '@/components/Icon';
@@ -157,8 +158,11 @@ export default function RoomTypeWizard({
                 fixedPrice: body.fixedPrice,
                 fixedPriceUnit: body.fixedPriceUnit,
                 operatorName: body.operatorName,
+                operatorId: body.operatorId,
                 rule: body.rule || undefined,
                 packageTypes: body.packageTypes,
+                exclusive: body.exclusive,
+                exclusiveScope: body.exclusiveScope,
                 badge: rule.badge.trim() || settings?.badge || 'Totus',
                 active: rule.active,
             });
