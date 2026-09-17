@@ -9,12 +9,13 @@
 // v3 (§2.2): отдельной карточки на витрине нет — наши предложения показываются внутри номера LT
 // (первыми в offers[meal]) рядом с предложениями Level.Travel; статус `active` вместо `replacing`,
 // поля `replaces_offer_ids` нет — предложения LT не замещаются.
+// §2.3: флаг exclusive — «продавать только наши предложения» (скрыть Level.Travel) с областью room | hotel.
 
 import { API_BASE_URL } from './server';
 
 const BASE = `${API_BASE_URL}/api/admin/rooms`;
 
-/* ── Типы ─────────────────────────────────────────────────────────────── */
+/* ── Типы ────────────────────────────────────────────── */
 
 export type RuleType = 'percent' | 'absolute';
 export type Rounding = 1 | 10 | 100;
@@ -24,6 +25,8 @@ export type PackageType = 'hotel' | 'package';
 export type PricingMode = 'fixed' | 'rule';
 /** Единица фиксированной цены: за проживание | за ночь (× nights_count предложения-шаблона). */
 export type FixedPriceUnit = 'total' | 'per_night';
+/** Область действия флага «продавать только наши предложения»: только номер-источник | весь отель. */
+export type ExclusiveScope = 'room' | 'hotel';
 
 /** Статус Room Type по актуальной выдаче (GET /hotels/:id/rooms). v2: `fixed` — активен, номер в выдаче, фиксированная цена;
  * v3: `active` — активен, номер в выдаче, цена по правилу (наши предложения внутри номера рядом с предложениями LT);
@@ -142,6 +145,8 @@ export interface OperatorRoom {
   offers: OperatorOffer[];
   /** id наших Room Type, созданных на основе этого номера для этого оператора. */
   room_types: number[];
+  /** §2.3: номер закрыт для Level.Travel — на витрине его предложения LT не показываются. */
+  exclusive?: boolean;
 }
 
 export interface OperatorGroup {
@@ -158,6 +163,18 @@ export interface LtHotelRoom {
   offers: LtOffer[];
   /** v2/v3: id наших Room Type с источником = этот номер (в админке показываются под номером всегда; на витрине — предложения внутри номера). */
   room_types?: number[];
+  /** §2.3: номер закрыт для Level.Travel — на витрине его предложения LT не показываются. */
+  exclusive?: boolean;
+}
+
+/** §2.3: сводка по отелю в GET /hotels/:id/rooms — какие номера закрыты для Level.Travel. */
+export interface HotelExclusive {
+  /** true — у отеля есть активный Room Type с флагом «только наши предложения». */
+  active: boolean;
+  /** 'hotel' — закрыт весь отель; 'room' — только номера из `rooms`; null — флага нет. */
+  scope: ExclusiveScope | null;
+  /** id номеров-источников Level.Travel, закрытых флагом. */
+  rooms: number[];
 }
 
 export interface PreviewRow {
@@ -227,6 +244,13 @@ export interface RoomType {
   minMarginValue: number | null;
   packageTypes: PackageType[];
   badge: string | null;
+  /**
+   * §2.3: «продавать только наши предложения» — предложения Level.Travel в номере/отеле
+   * скрываются с витрины и не бронируются. До миграции backend всегда отдаёт false.
+   */
+  exclusive?: boolean;
+  /** Область действия флага: только номер-источник (по умолчанию) | весь отель. */
+  exclusiveScope?: ExclusiveScope;
   active: boolean;
   sortOrder: number;
   last: RoomTypeLast;
@@ -301,6 +325,8 @@ export interface HotelRoomsResult {
   rooms: LtHotelRoom[];
   room_types: RoomType[];
   settings: RoomSettings;
+  /** §2.3: какие номера отеля закрыты для Level.Travel (до миграции — active:false). */
+  exclusive?: HotelExclusive;
 }
 
 /** Слепок цены (price-log, заказы): v1 — { type, value, label }; v2 — { mode:'fixed', fixedPrice, unit, label } | { mode:'rule', type, value, … }. */
@@ -391,6 +417,8 @@ export interface Diagnostics {
   missingTables: string[];
   missingColumns: string[];
   diagColumns: boolean;
+  /** §2.3: false — колонок exclusive/exclusive_scope нет, флаг «только наши предложения» сохранять нельзя. */
+  exclusiveColumns?: boolean;
   checkedAt: string | null;
   dbError: string | null;
   settings: RoomSettings | null;
@@ -447,6 +475,9 @@ export interface RoomTypeBody {
   /** Пустые = любой тип поиска. */
   packageTypes?: PackageType[];
   badge?: string | null;
+  /** §2.3: не передано — значение не меняется. */
+  exclusive?: boolean;
+  exclusiveScope?: ExclusiveScope;
   active?: boolean;
   sortOrder?: number;
 }
@@ -456,6 +487,9 @@ export interface DuplicateBody {
   copyContent?: boolean;
   copyRule?: boolean;
   images?: 'same' | 'none';
+  /** §2.3: не передано — флаг копируется с оригинала. */
+  exclusive?: boolean;
+  exclusiveScope?: ExclusiveScope;
 }
 
 export interface PreviewOfferInput {
@@ -481,7 +515,7 @@ export interface PreviewResult {
   rows: PreviewRow[];
 }
 
-/* ── Бронирования наших Room Type (без Level.Travel) ──────────────────── */
+/* ── Бронирования наших Room Type (без Level.Travel) ────────────────── */
 // Контракт: docs/CUSTOM_ROOMS_API.md §6 в totus_API (`/api/admin/rooms/bookings/*`).
 
 export type BookingStatus = 'pending_payment' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'cancelled';
@@ -641,7 +675,7 @@ export const BOOKING_REJECT_REASONS: { value: BookingRejectReason; label: string
   { value: 'other', label: 'Другое' },
 ];
 
-/* ── Ошибки ───────────────────────────────────────────────────────────── */
+/* ── Ошибки ─────────────────────────────────────────── */
 
 export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
   custom_rooms_not_migrated: 'Модуль Room Type не настроен на сервере (миграция)',
@@ -655,6 +689,7 @@ export const ROOMS_ERROR_MESSAGES: Record<string, string> = {
   fixed_price_invalid: 'Укажите фиксированную цену больше нуля',
   fixed_price_out_of_range: 'Фиксированная цена не может быть больше 100 000 000 ₽',
   operator_id_invalid: 'ID оператора должен быть целым положительным числом (или оставьте пустым)',
+  exclusive_scope_invalid: 'Неверная область действия флага',
   rule_type_invalid: 'Выберите тип правила: процент или сумма',
   rule_value_invalid: 'Укажите значение правила',
   rule_value_out_of_range: 'Значение правила вне допустимого диапазона (−90…500 % или до 10 000 000 ₽)',
@@ -752,7 +787,7 @@ function qs(params: object): string {
   return s ? `?${s}` : '';
 }
 
-/* ── Отели и номера Level.Travel ──────────────────────────────────────── */
+/* ── Отели и номера Level.Travel ─────────────────────────────── */
 
 // GET /hotels/search — enqueue + ожидание + grouped hotels (+ totus_room_types).
 // Повторный вызов с request_id — без нового поиска (фильтры/страница применяются к той же выдаче).
@@ -765,7 +800,7 @@ export function getHotelRooms(hotelId: number, requestId: string): Promise<Hotel
   return request<HotelRoomsResult>(`/hotels/${hotelId}/rooms${qs({ request_id: requestId })}`, {}, 'Не удалось загрузить номера отеля');
 }
 
-/* ── Room Type ────────────────────────────────────────────────────────── */
+/* ── Room Type ────────────────────────────────────────── */
 
 // GET /room-types?hotel_id&active=1|0&q → { room_types, settings }
 export function listRoomTypes(params: { hotelId?: number | string; active?: boolean; q?: string } = {}): Promise<{ room_types: RoomType[]; settings: RoomSettings }> {
@@ -845,7 +880,7 @@ export async function getRoomTypeOrders(id: number, limit?: number): Promise<Roo
   return data.items || [];
 }
 
-/* ── Фото ─────────────────────────────────────────────────────────────── */
+/* ── Фото ──────────────────────────────────────────── */
 
 // POST /images (multipart `image`, до 15 МБ, jpeg/png/webp) → { image: {source:'upload', url} }
 export async function uploadRoomImage(file: File): Promise<RoomImage> {
@@ -860,7 +895,7 @@ export function deleteRoomImage(url: string): Promise<{ ok: boolean }> {
   return request('/images', { method: 'DELETE', body: JSON.stringify({ url }) }, 'Не удалось удалить фото');
 }
 
-/* ── Настройки ────────────────────────────────────────────────────────── */
+/* ── Настройки ─────────────────────────────────────── */
 
 // GET /settings
 export async function getRoomSettings(): Promise<RoomSettings> {
@@ -879,7 +914,7 @@ export function getDiagnostics(recheck = false): Promise<Diagnostics> {
   return request<Diagnostics>(`/diagnostics${qs({ recheck })}`, {}, 'Не удалось получить диагностику');
 }
 
-/* ── Бронирования (без Level.Travel) ──────────────────────────────────── */
+/* ── Бронирования (без Level.Travel) ────────────────────────── */
 
 /** Тот же request, но коды ошибок — с подписями бронирований. */
 async function bookingRequest<T>(path: string, init: RequestInit = {}, fallback = 'Ошибка запроса'): Promise<T> {
@@ -955,7 +990,7 @@ export async function resendBookingVoucher(id: number): Promise<{ booking: Booki
   return { booking: data.booking, result: data.result };
 }
 
-/* ── Хелперы ──────────────────────────────────────────────────────────── */
+/* ── Хелперы ──────────────────────────────────────── */
 
 /** Абсолютный URL фото: свои (`/uploads/rooms/…`) лежат на totus_API, LT — по полной ссылке. */
 export function imageUrl(url: string | null | undefined): string {
@@ -984,6 +1019,19 @@ export function pricingLabelOf(rt: Pick<RoomType, 'pricingMode' | 'fixedPrice' |
   if (rt.pricingLabel) return rt.pricingLabel;
   if (rt.pricingMode === 'fixed') return fixedPriceLabel(rt.fixedPrice, rt.fixedPriceUnit);
   return rt.ruleLabel || ruleLabel(rt.rule || { ruleType: rt.ruleType, ruleValue: rt.ruleValue });
+}
+
+/** §2.3: «Только наши» / «Только наши · весь отель»; null — флаг выключен. */
+export function exclusiveLabel(rt: Pick<RoomType, 'exclusive' | 'exclusiveScope'> | null | undefined): string | null {
+  if (!rt?.exclusive) return null;
+  return rt.exclusiveScope === 'hotel' ? 'Только наши · весь отель' : 'Только наши';
+}
+
+/** §2.3: закрыт ли номер отеля для Level.Travel по сводке `exclusive` из GET /hotels/:id/rooms. */
+export function isRoomExclusive(exclusive: HotelExclusive | null | undefined, roomId: number | null | undefined): boolean {
+  if (!exclusive?.active || roomId === null || roomId === undefined) return false;
+  if (exclusive.scope === 'hotel') return true;
+  return (exclusive.rooms || []).map(Number).includes(Number(roomId));
 }
 
 /** Текст правила из слепка price-log/заказа: label с сервера, иначе собираем из mode/fixedPrice или type/value. */
