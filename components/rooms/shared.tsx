@@ -9,13 +9,13 @@ import { t, radius, text, button, badge } from '@/lib/theme';
 import type { BadgeTone } from '@/components/notifications/shared';
 import { exclusiveLabel, formatMoney, pricingLabelOf, type ChangeLogItem, type RoomType, type RoomTypeStatus } from '@/lib/rooms-api';
 
-/* ── Справочники ── */
+/* ── Справочники ──────────────────────────────────────── */
 
 export type ListStatus = RoomTypeStatus | 'never_seen' | 'skipped';
 
 export const STATUS_META: Record<ListStatus, { label: string; tone: BadgeTone }> = {
     fixed: { label: 'Активен · фикс. цена', tone: 'success' },
-    replacing: { label: 'Активен', tone: 'success' },
+    active: { label: 'Активен · правило', tone: 'success' },
     inactive: { label: 'Выкл', tone: 'neutral' },
     source_missing: { label: 'Источник не найден', tone: 'warning' },
     no_offers: { label: 'Нет предложений у номера', tone: 'warning' },
@@ -65,7 +65,7 @@ export function roomTypeStatus(rt: RoomType): ListStatus {
     if (!rt.last?.seenAt) return 'never_seen';
     if (rt.pricingMode === 'fixed') return 'fixed';
     if (rt.last?.marginClamped) return 'margin_clamped';
-    return 'replacing';
+    return 'active';
 }
 
 /** §2.3: «Только наши» / «Только наши · весь отель»; null — флаг выключен. */
@@ -84,12 +84,12 @@ export function exclusiveText(rt: Pick<RoomType, 'exclusive' | 'exclusiveScope'>
 /** Подпись статуса на карточке под номером. */
 export function statusText(rt: RoomType): string {
     const status = roomTypeStatus(rt);
-    const replaces = rt.operatorIds?.length ? ` · замещает предложения ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператора ${rt.operatorIds.join(', ')}`}` : '';
+    const templates = rt.operatorIds?.length ? ` · шаблон: ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператор ${rt.operatorIds.join(', ')}`}` : '';
     const only = rt.exclusive ? ` · только наши предложения (Level.Travel скрыт ${rt.exclusiveScope === 'hotel' ? 'во всём отеле' : 'в этом номере'})` : '';
-    if (status === 'fixed') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · фиксированная цена${replaces}${only}`;
-    if (status === 'replacing') return `Показывается у номера как ${rt.operatorName || 'Arlekino'} · цена по правилу${replaces}${only}`;
+    if (status === 'fixed') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · фиксированная цена${templates}${only}`;
+    if (status === 'active') return `Наше предложение ${rt.operatorName || 'Arlekino'} показывается внутри номера рядом с предложениями Level.Travel · цена по правилу${templates}${only}`;
     if (status === 'source_missing') return 'Источник не найден на эти даты';
-    if (status === 'no_offers') return 'Номер есть в выдаче, но предложений нет — комната не показывается';
+    if (status === 'no_offers') return 'Номер есть в выдаче, но предложений нет — наше предложение не добавляется';
     if (status === 'no_pricing') return 'Цена или правило не заданы — откройте «Изменить» и сохраните цену';
     if (status === 'margin_clamped') return 'Маржа ограничена минимальным порогом';
     if (status === 'skipped') return `На витрине пропущен: ${skipReasonText(activeSkipReason(rt))}`;
@@ -131,7 +131,7 @@ export function pricingModeLabel(rt: Pick<RoomType, 'pricingMode'>): string {
     return rt.pricingMode === 'fixed' ? 'Фиксированная цена' : 'Правило от цены Level.Travel';
 }
 
-/* ── Даты ── */
+/* ── Даты ────────────────────────────────────────────── */
 
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
@@ -198,13 +198,13 @@ export function timeAgo(value?: string | null): string {
 /** Текст записи истории правок из `changes` JSON. */
 export function describeChange(item: ChangeLogItem): string {
     const c = item.changes || {};
-    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · замещает операторов ${(c.operators as unknown[]).join(', ')}` : ''}${c.exclusive ? ' · только наши предложения (Level.Travel скрыт)' : ''}`;
+    if (c.created) return `создан · цена ${String(c.pricing || c.rule || '')}${Array.isArray(c.operators) && (c.operators as unknown[]).length ? ` · шаблон от операторов ${(c.operators as unknown[]).join(', ')}` : ''}${c.exclusive ? ' · только наши предложения (Level.Travel скрыт)' : ''}`;
     if (c.deleted) return `удалён${c.name ? ` («${String(c.name)}»)` : ''}`;
     if (c.duplicatedFrom) return `создан как копия Room Type #${String(c.duplicatedFrom)}`;
     const names: Record<string, string> = {
         ruleType: 'тип правила', ruleValue: 'значение правила', rounding: 'округление', minPrice: 'мин. цена', maxPrice: 'макс. цена',
         minMarginType: 'тип мин. маржи', minMarginValue: 'мин. маржа', badge: 'бейдж', active: 'активность', sortOrder: 'порядок',
-        packageTypes: 'тип пакета', operatorIds: 'замещаемые операторы', mealTypes: 'питание',
+        packageTypes: 'тип пакета', operatorIds: 'операторы-шаблоны', mealTypes: 'питание',
         pricingMode: 'режим цены', fixedPrice: 'фиксированная цена', fixedPriceUnit: 'единица фикс. цены', operatorName: 'название оператора', operatorId: 'ID оператора',
         exclusive: 'только наши предложения (Level.Travel скрыт)', exclusiveScope: 'область «только наши предложения»',
         'content.nameRu': 'название RU', 'content.nameEn': 'название EN', 'content.accommodation': 'размещение', 'content.area': 'площадь',
@@ -233,7 +233,7 @@ export function describeChange(item: ChangeLogItem): string {
     return parts.join(' · ') || 'изменение';
 }
 
-/* ── Хуки ── */
+/* ── Хуки ────────────────────────────────────────────── */
 
 export function useDebounced<T>(value: T, delay = 400): T {
     const [debounced, setDebounced] = useState(value);
@@ -244,7 +244,7 @@ export function useDebounced<T>(value: T, delay = 400): T {
     return debounced;
 }
 
-/* ── Примитивы ── */
+/* ── Примитивы ─────────────────────────────────────── */
 
 export function Stars({ count, size = 14 }: { count: number; size?: number }) {
     const n = Math.max(0, Math.min(5, Math.round(count)));
@@ -471,7 +471,7 @@ export function PricePair({ provider, final, margin, compact, fixed, perNight }:
     );
 }
 
-/* ── Таблицы ── */
+/* ── Таблицы ─────────────────────────────────────────── */
 
 export const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
 export const thStyle: CSSProperties = {
