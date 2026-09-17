@@ -2,6 +2,7 @@
 
 // Вкладка «Настройки»: глобальная минимальная маржа, округление, бейдж, «показывать только при поиске отелей» (v2: выкл по умолчанию),
 // блок «Диагностика» — GET /api/admin/rooms/diagnostics: почему активный Room Type не виден на сайте (без логов сервера).
+// §2.3: в диагностике — наличие колонок exclusive/exclusive_scope (без них флаг «только наши предложения» сохранять нельзя).
 
 import { useEffect, useState } from 'react';
 import { t, radius, text, button, cardStyle, badge } from '@/lib/theme';
@@ -69,8 +70,18 @@ function DiagnosticsCard() {
                         <span style={badge(data.ready ? 'success' : 'error')}>{data.ready ? 'Модуль включён' : `Модуль выключен: ${data.disabledReason || 'миграция не выполнена'}`}</span>
                         <span style={badge(mw?.mounted ? 'success' : 'error')}>{mw?.mounted ? 'Middleware подключён в app.js' : 'Middleware НЕ подключён (app.js / pm2 restart)'}</span>
                         <span style={badge(data.diagColumns ? 'neutral' : 'warning')}>{data.diagColumns ? 'Колонки диагностики есть' : 'Нет колонок диагностики — повторить миграцию'}</span>
+                        {data.exclusiveColumns === undefined ? null : (
+                            <span style={badge(data.exclusiveColumns ? 'neutral' : 'warning')}>
+                                {data.exclusiveColumns ? 'Колонки «только наши предложения» есть' : 'Нет колонок «только наши предложения»'}
+                            </span>
+                        )}
                         {data.settings?.hotelOnly ? <span style={badge('warning')}>Включено «только поиск отелей» — сайт ищет package</span> : null}
                     </div>
+                    {data.exclusiveColumns === false ? (
+                        <div style={{ padding: '10px 12px', borderRadius: radius.sm, background: t.warningSoft, color: t.textPrimary, fontSize: 13, lineHeight: '18px' }}>
+                            Флаг «только наши предложения» недоступен: выполните миграцию <span style={text.mono}>node scripts/run-custom-rooms-migration.js</span> и перезапустите API
+                        </div>
+                    ) : null}
                     {data.missingTables.length || data.missingColumns.length ? (
                         <div style={text.caption}>
                             {data.missingTables.length ? `Нет таблиц: ${data.missingTables.join(', ')}. ` : ''}
