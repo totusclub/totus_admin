@@ -13,7 +13,7 @@ import { STATUS_META, roomTypeStatus, type ListStatus, roomTypeLabel, formatShor
 const STATUS_OPTIONS: { value: ListStatus | ''; label: string }[] = [
     { value: '', label: 'Все статусы' },
     { value: 'fixed', label: 'Активен · фикс. цена' },
-    { value: 'replacing', label: 'Активен · правило' },
+    { value: 'active', label: 'Активен · правило' },
     { value: 'never_seen', label: 'Ещё не показывался' },
     { value: 'inactive', label: 'Выкл' },
     { value: 'source_missing', label: 'Источник не найден' },
@@ -160,7 +160,7 @@ export default function RoomTypesTab({ hotelId }: { hotelId?: number }) {
                                         </td>
                                         <td style={tdStyle}>
                                             <div style={{ fontWeight: 600 }}>{rt.operatorName || 'Arlekino'}</div>
-                                            {rt.operatorIds?.length ? <div style={text.caption}>замещает {rt.operatorNames?.length ? rt.operatorNames.join(', ') : rt.operatorIds.join(', ')}</div> : null}
+                                            {rt.operatorIds?.length ? <div style={text.caption}>шаблон: {rt.operatorNames?.length ? rt.operatorNames.join(', ') : rt.operatorIds.join(', ')}</div> : null}
                                         </td>
                                         <td style={{ ...tdStyle, color: t.textSecondary }}>{rt.sourceRoomName || `#${rt.sourceRoomId}`}</td>
                                         <td style={tdStyle}>

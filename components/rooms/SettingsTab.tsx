@@ -82,7 +82,7 @@ function DiagnosticsCard() {
                             <Stat label="Запросов через middleware" value={mw.middlewareCalls} warn={mw.middlewareCalls === 0} />
                             <Stat label="/start-search" value={mw.startSearchSeen} />
                             <Stat label="/hotels-rooms обработано" value={mw.hotelsRoomsSeen} warn={mw.hotelsRoomsSeen === 0} />
-                            <Stat label="…с вставкой наших комнат" value={mw.hotelsRoomsInjected} warn={mw.hotelsRoomsSeen > 0 && mw.hotelsRoomsInjected === 0} />
+                            <Stat label="…с вставкой наших предложений" value={mw.hotelsRoomsInjected} warn={mw.hotelsRoomsSeen > 0 && mw.hotelsRoomsInjected === 0} />
                             <Stat label="Ошибок трансформации" value={mw.hotelsRoomsErrors} warn={mw.hotelsRoomsErrors > 0} />
                             <Stat label="Пропущено (модуль выключен)" value={mw.notReadySkips} warn={mw.notReadySkips > 0} />
                         </div>
@@ -98,7 +98,7 @@ function DiagnosticsCard() {
                             {data.hints.map((h, i) => <div key={i}>• {h}</div>)}
                         </div>
                     ) : data.ready ? (
-                        <div style={{ padding: '10px 12px', borderRadius: radius.sm, background: t.successSoft, color: t.success, fontSize: 13 }}>Проблем не найдено: комнаты вставляются в ответы /hotels-rooms.</div>
+                        <div style={{ padding: '10px 12px', borderRadius: radius.sm, background: t.successSoft, color: t.success, fontSize: 13 }}>Проблем не найдено: наши предложения вставляются в номера в ответах /hotels-rooms.</div>
                     ) : null}
                     {data.activeRoomTypes.length ? (
                         <TableWrap>

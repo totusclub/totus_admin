@@ -16,7 +16,44 @@ export interface Order {
   pay_status?: string;
   c_date?: number | string;
   state?: string;
+  /** GET /orders (totus_API, после патча ORDERS_FLOW_PATCH.md): auth_token Level Travel этого заказа из БД; у внутренних — null. */
+  lt_auth_token?: string | null;
+  /** Внутренний заказ наших Room Type (бронирование Arlekino, order_id >= 900000000) — Level.Travel не участвует. */
+  internal?: boolean;
+  totus_booking?: InternalBooking | null;
   [key: string]: any;
+}
+
+/** `totus_booking` внутреннего заказа (custom rooms, docs/CUSTOM_ROOMS_API.md §6) — только нужные здесь поля. */
+export interface InternalBooking {
+  bookingId: number;
+  orderId?: number;
+  status?: string;
+  statusLabel?: string;
+  statusText?: string;
+  hotelBookingRef?: string | null;
+  [key: string]: any;
+}
+
+/** С этого id начинаются внутренние заказы (бронирования Arlekino без Level.Travel). */
+export const INTERNAL_ORDER_ID_FROM = 900000000;
+
+/** Внутренний заказ: `internal:true` / `totus_booking` в ответе или id >= 900000000. */
+export function isInternalOrder(order?: Order | null, orderId?: number | string | null): boolean {
+  const o: any = order;
+  if (o?.internal === true) return true;
+  if (o?.totus_booking && typeof o.totus_booking === 'object') return true;
+  const id = Number(orderId ?? getOrderId(order || undefined));
+  return Number.isFinite(id) && id >= INTERNAL_ORDER_ID_FROM;
+}
+
+/** id бронирования Arlekino для ссылки /rooms/booking/<id> (totus_booking.bookingId, иначе order_id − 900000000). */
+export function getInternalBookingId(order?: Order | null, orderId?: number | string | null): number | null {
+  const fromBooking = Number((order as any)?.totus_booking?.bookingId);
+  if (Number.isFinite(fromBooking) && fromBooking > 0) return fromBooking;
+  const id = Number(orderId ?? getOrderId(order || undefined));
+  if (Number.isFinite(id) && id >= INTERNAL_ORDER_ID_FROM) return id - INTERNAL_ORDER_ID_FROM;
+  return null;
 }
 
 // An order enriched with the owning user (used in the "all orders" admin view)
@@ -62,9 +99,12 @@ export async function getOrderDocuments(orderId: number | string): Promise<Array
 }
 
 // Extract the per-order Level Travel auth token stored on the order/package.
+// Основной источник — `lt_auth_token` в корне ответа GET /orders?order_id (строка заказа в БД);
+// остальные места — для старых записей. У внутренних заказов (Arlekino) токена нет — null.
 export function getOrderAuthToken(order?: Order): string | null {
   if (!order) return null;
   const o: any = order;
+  if (isInternalOrder(order)) return null;
   const pkg = o.package || {};
   const candidate =
     o.lt_auth_token ||

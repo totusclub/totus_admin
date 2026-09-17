@@ -43,7 +43,7 @@ export default function PricePreview({
     subtitle?: string;
     onRefresh?: () => void;
     refreshing?: boolean;
-    /** Мини-карточка «Так увидит пользователь» (без бейджа — на витрине наши комнаты не помечаются). */
+    /** Мини-карточка «Так увидит пользователь» (без бейджа — v3: наше предложение внутри номера LT рядом с предложениями Level.Travel). */
     userCard?: { name: string; meta?: string; photo?: string; sourceName?: string | null; operator?: string | null };
     nights?: number;
 }) {
@@ -188,7 +188,7 @@ export default function PricePreview({
                         </div>
                     </div>
                     <div style={{ ...text.caption, marginTop: 8 }}>
-                        Показывается у номера как оператор {userCard.operator || 'Arlekino'} при любых датах и составе гостей · оплата нашей цены · бронирование подтверждает сотрудник
+                        Наше предложение показывается внутри номера рядом с предложениями Level.Travel как оператор {userCard.operator || 'Arlekino'} при любых датах и составе гостей · оплата нашей цены · бронирование подтверждает сотрудник
                     </div>
                 </div>
             ) : null}

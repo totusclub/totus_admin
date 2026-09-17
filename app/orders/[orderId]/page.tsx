@@ -11,6 +11,8 @@ import {
     getOrderDocuments,
     getClientOrder,
     getOrderAuthToken,
+    getInternalBookingId,
+    isInternalOrder,
     collectLtDocuments,
     getPackageData,
     getOrderId,
@@ -129,9 +131,11 @@ export default function OrderDetailPage() {
     const loadLevelTravel = async (sourceOrder: Order | null) => {
         const base = sourceOrder || order;
         if (!base || !orderIdParam) return;
+        // Внутренний заказ (бронирование Arlekino): Level.Travel не участвует — /client/orders/:id не вызываем.
+        if (isInternalOrder(base, orderIdParam)) return;
         const token = getOrderAuthToken(base);
         if (!token) {
-            setLtError('Для этого заказа не сохранён auth_token Level Travel');
+            setLtError('Для этого заказа нет auth_token Level Travel — токен не пришёл от Level.Travel при создании заказа');
             return;
         }
         try {
@@ -205,6 +209,10 @@ export default function OrderDetailPage() {
     const ltPrice = ltOrder
         ? formatPrice(ltOrder.full_price ?? ltOrder.price ?? ltPkg?.price ?? ltPkg?.full_price)
         : null;
+    // Внутренний заказ наших Room Type (internal:true / totus_booking / id >= 900000000) — вместо блока Level Travel плашка Arlekino.
+    const internal = order ? isInternalOrder(order, orderIdParam) : false;
+    const internalBookingId = internal ? getInternalBookingId(order, orderIdParam) : null;
+    const booking: any = (order as any)?.totus_booking || null;
 
     return (
         <PageShell>
@@ -255,7 +263,41 @@ export default function OrderDetailPage() {
                         </div>
                     </div>
 
+                    {/* Внутренний заказ: бронирование Arlekino, Level.Travel не участвует */}
+                    {internal && (
+                        <div style={cardStyle}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                <div>
+                                    <div style={{ ...sectionTitle, marginBottom: 4 }}>Бронирование Arlekino — Level.Travel не участвует</div>
+                                    <div style={text.caption}>
+                                        Заказ нашего Room Type: оплата нашей цены, подтверждение и возврат — вручную сотрудником в разделе «Отели и номера».
+                                        {booking?.statusLabel ? ` Статус: ${booking.statusLabel}.` : ''}
+                                        {booking?.hotelBookingRef ? ` Номер брони: ${booking.hotelBookingRef}.` : ''}
+                                    </div>
+                                </div>
+                                {internalBookingId != null && (
+                                    <button
+                                        onClick={() => router.push(`/rooms/booking/${internalBookingId}`)}
+                                        style={button('primary', 'md')}
+                                    >
+                                        Открыть бронирование #{internalBookingId}
+                                        <Icon name="chevronRight" size={16} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Level Travel live data */}
+                    {!internal && (
                     <div style={cardStyle}>
                         <div
                             style={{
@@ -352,6 +394,7 @@ export default function OrderDetailPage() {
                             </>
                         )}
                     </div>
+                    )}
 
                     {/* Tour info */}
                     <div style={cardStyle}>
@@ -362,7 +405,7 @@ export default function OrderDetailPage() {
                         <InfoRow label="Ночей" value={pkg?.nights_count} />
                         <InfoRow label="Тип номера" value={pkg?.room_type} />
                         <InfoRow label="Питание" value={pkg?.pansion_description || pkg?.meal} />
-                        <InfoRow label="Туроператор" value={pkg?.operator || 'Level.Travel'} />
+                        <InfoRow label="Туроператор" value={pkg?.operator || (internal ? 'Arlekino' : 'Level.Travel')} />
                     </div>
 
                     {/* Client */}

@@ -2,6 +2,7 @@
 
 // Карточка нашего Room Type (под номером LT или в списке отеля): brand-полоса, цена (v2: «1 ₽ (фикс.)» / правило),
 // «Провайдер → Наша», маржа, статус по актуальной выдаче, действия.
+// v3: на витрине наше предложение показывается внутри номера LT рядом с предложениями Level.Travel (отдельной карточки нет).
 
 import { t, radius, text, button, badge } from '@/lib/theme';
 import { Toggle } from '@/components/notifications/shared';
@@ -42,7 +43,7 @@ export default function RoomTypeCard({
     const fixed = rt.pricingMode === 'fixed';
     // диагностика: причина последнего пропуска на витрине (если она новее последнего показа) — показываем и при статусе с выдачи
     const skipReason = rt.active && status !== 'skipped' ? activeSkipReason(rt) : null;
-    const replaces = rt.operatorIds?.length ? ` · замещает ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператора ${rt.operatorIds.join(', ')}`}` : '';
+    const templates = rt.operatorIds?.length ? ` · шаблон: ${rt.operatorNames?.length ? rt.operatorNames.join(', ') : `оператор ${rt.operatorIds.join(', ')}`}` : '';
     const meals = rt.mealTypes?.length ? rt.mealTypes.join(', ') : 'самое дешёвое питание';
 
     return (
@@ -68,7 +69,7 @@ export default function RoomTypeCard({
                 </div>
                 <div style={{ ...text.caption, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {showHotel && rt.hotelName ? `${rt.hotelName} · ` : ''}
-                    {rt.operatorName || 'Arlekino'} · у номера «{rt.sourceRoomName || `#${rt.sourceRoomId}`}» · {meals}{replaces}
+                    {rt.operatorName || 'Arlekino'} · у номера «{rt.sourceRoomName || `#${rt.sourceRoomId}`}» · {meals}{templates}
                 </div>
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                     <span style={{ ...badge(meta.tone), fontSize: 12 }}>{statusText(rt)}</span>
