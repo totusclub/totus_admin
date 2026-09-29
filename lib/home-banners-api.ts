@@ -45,12 +45,29 @@ export async function saveHomeBanner(
     return data.data;
 }
 
+/* ── Hero: заголовок + неограниченный список изображений ───────────────── */
+// На сайте при каждом открытии главной показывается одно случайное изображение из списка
+// (выбирает totus_API в GET /api/home-hero).
+
+export interface HeroImage {
+    id: number;
+    image: string;
+    sort_order: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface HomeHero {
     id?: number;
     title: string;
+    /** Первое изображение списка (совместимость со старым форматом). */
     image: string;
+    images?: HeroImage[];
     updated_at?: string;
 }
+
+/** Сколько файлов можно отправить одним запросом (ограничение API; всего — без ограничения). */
+export const HERO_MAX_FILES_PER_REQUEST = 20;
 
 export async function getHomeHero(): Promise<HomeHero> {
     const response = await fetch(`${BANNERS_API_BASE}/api/admin/home-hero`, { cache: 'no-store' });
@@ -58,10 +75,8 @@ export async function getHomeHero(): Promise<HomeHero> {
     return data.data;
 }
 
-export async function saveHomeHero(input: {
-    title: string;
-    image?: File | null;
-}): Promise<HomeHero> {
+/** Сохраняет заголовок hero. Изображения управляются отдельными запросами ниже. */
+export async function saveHomeHero(input: { title: string; image?: File | null }): Promise<HomeHero> {
     const formData = new FormData();
     formData.append('title', input.title);
     if (input.image) {
@@ -74,4 +89,45 @@ export async function saveHomeHero(input: {
     });
     const data = await parseJson<{ data: HomeHero }>(response);
     return data.data;
+}
+
+export async function getHeroImages(): Promise<HeroImage[]> {
+    const response = await fetch(`${BANNERS_API_BASE}/api/admin/home-hero/images`, { cache: 'no-store' });
+    const data = await parseJson<{ data: HeroImage[] }>(response);
+    return Array.isArray(data.data) ? data.data : [];
+}
+
+/** Добавляет изображения (любое количество — отправляются пачками). Возвращает весь список. */
+export async function addHeroImages(files: File[]): Promise<HeroImage[]> {
+    let images: HeroImage[] | null = null;
+    for (let i = 0; i < files.length; i += HERO_MAX_FILES_PER_REQUEST) {
+        const formData = new FormData();
+        files.slice(i, i + HERO_MAX_FILES_PER_REQUEST).forEach((file) => formData.append('images', file));
+        const response = await fetch(`${BANNERS_API_BASE}/api/admin/home-hero/images`, {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await parseJson<{ data: HeroImage[]; images?: HeroImage[] }>(response);
+        if (Array.isArray(data.images)) images = data.images;
+    }
+    return images ?? getHeroImages();
+}
+
+/** Заменяет файл изображения, id и место в списке сохраняются. */
+export async function replaceHeroImage(id: number, file: File): Promise<HeroImage> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await fetch(`${BANNERS_API_BASE}/api/admin/home-hero/images/${id}`, {
+        method: 'PUT',
+        body: formData,
+    });
+    const data = await parseJson<{ data: HeroImage }>(response);
+    return data.data;
+}
+
+export async function deleteHeroImage(id: number): Promise<void> {
+    const response = await fetch(`${BANNERS_API_BASE}/api/admin/home-hero/images/${id}`, {
+        method: 'DELETE',
+    });
+    await parseJson(response);
 }
