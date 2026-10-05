@@ -141,8 +141,8 @@ export const FOOTER_PAGE_CATALOG: FooterPageCatalogItem[] = [
     {
         slug: 'privacy-policy',
         title: 'Политика обработки персональных данных',
-        breadcrumbLabel: 'Политика обработки ПДн',
-        mobileHeaderTitle: 'Политика обработки ПДн',
+        breadcrumbLabel: 'Политика обработки персональных данных',
+        mobileHeaderTitle: 'Политика обработки персональных данных',
         section: 'legal',
         group: 'Правовая информация',
         seoTitle: 'Политика обработки персональных данных',
@@ -167,8 +167,8 @@ export const FOOTER_PAGE_CATALOG: FooterPageCatalogItem[] = [
     {
         slug: 'consent',
         title: 'Согласие на обработку персональных данных',
-        breadcrumbLabel: 'Согласие на обработку ПДн',
-        mobileHeaderTitle: 'Согласие на обработку ПДн',
+        breadcrumbLabel: 'Согласие на обработку персональных данных',
+        mobileHeaderTitle: 'Согласие на обработку персональных данных',
         section: 'legal',
         group: 'Правовая информация',
         seoTitle: 'Согласие на обработку персональных данных',
