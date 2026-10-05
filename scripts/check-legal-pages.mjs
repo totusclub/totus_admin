@@ -1,6 +1,7 @@
 // Юридические документы ТОТУСКЛАБ в админке (03.10.2026).
 // Поломка: в каталоге страниц было 11 страниц футера — 4 новых документа
-// (согласие на ПДн, согласие на рекламу, рекомендательные технологии, реквизиты)
+// (согласие на обработку персональных данных, согласие на рекламу,
+// рекомендательные технологии, реквизиты)
 // нельзя было открыть и сохранить в разделе «Страницы сайта».
 // Запуск: node scripts/check-legal-pages.mjs (Node >= 22.18, без npm install).
 import assert from 'node:assert/strict';
@@ -46,6 +47,36 @@ for (const [slug, title] of Object.entries(LEGAL)) {
         assert.equal(item.group, 'Правовая информация');
         assert.equal(item.publicPath, `/${slug}`);
         assert.ok(item.seoTitle && item.seoDescription && item.breadcrumbLabel && item.mobileHeaderTitle);
+    });
+}
+
+// Требование владельца (05.10.2026): в названиях документов нет сокращений
+// («ПДн» → «персональных данных») и нет прежнего оператора (Арлекинотур / Arlekino).
+const FORBIDDEN = [
+    [/ПДн/u, '«ПДн» (писать «персональных данных»)'],
+    [/арлекино|arlekino/iu, 'Арлекинотур / Arlekino'],
+];
+const TEXT_FIELDS = [
+    'title', 'breadcrumbLabel', 'mobileHeaderTitle', 'group',
+    'seoTitle', 'seoDescription', 'seoKeywords', 'defaultContent',
+];
+check('в каталоге нет «ПДн» и Арлекинотур / Arlekino', () => {
+    const hits = [];
+    for (const item of FOOTER_PAGE_CATALOG) {
+        for (const field of TEXT_FIELDS) {
+            const value = String(item[field] ?? '');
+            for (const [re, label] of FORBIDDEN) {
+                if (re.test(value)) hits.push(`${item.slug}.${field}: ${label} — «${value}»`);
+            }
+        }
+    }
+    assert.deepEqual(hits, []);
+});
+for (const slug of ['privacy-policy', 'consent']) {
+    check(`«${slug}»: хлебные крошки и мобильный заголовок равны полному названию`, () => {
+        const item = FOOTER_PAGE_BY_SLUG[slug];
+        assert.equal(item.breadcrumbLabel, LEGAL[slug]);
+        assert.equal(item.mobileHeaderTitle, LEGAL[slug]);
     });
 }
 
