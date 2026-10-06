@@ -3,6 +3,9 @@
 // (согласие на обработку персональных данных, согласие на рекламу,
 // рекомендательные технологии, реквизиты)
 // нельзя было открыть и сохранить в разделе «Страницы сайта».
+// Пачка 2 (05.10.2026): ещё 5 документов — оферта о заключении договора о реализации
+// туристского продукта, условия бронирования размещения, изменение, отмена и возврат,
+// памятка туристу, оплата и возврат денег.
 // Запуск: node scripts/check-legal-pages.mjs (Node >= 22.18, без npm install).
 import assert from 'node:assert/strict';
 
@@ -14,6 +17,7 @@ const API_ALLOWED = [
     'about-us', 'help-faq', 'partners', 'advertise', 'airlines', 'low-fare-tips',
     'badges-certificates', 'security', 'cookie-settings', 'privacy-policy', 'terms',
     'consent', 'ads-consent', 'recommendations', 'requisites',
+    'tour-offer', 'hotel-booking', 'cancellation', 'tourist-memo', 'payment',
 ];
 const LEGAL = {
     terms: 'Пользовательское соглашение',
@@ -23,6 +27,11 @@ const LEGAL = {
     'cookie-settings': 'Политика использования файлов cookie',
     recommendations: 'Правила применения рекомендательных технологий',
     requisites: 'Реквизиты и контакты',
+    'tour-offer': 'Оферта о заключении договора о реализации туристского продукта',
+    'hotel-booking': 'Условия бронирования размещения',
+    cancellation: 'Изменение, отмена и возврат',
+    'tourist-memo': 'Памятка туристу',
+    payment: 'Оплата и возврат денег',
 };
 
 let passed = 0;
@@ -32,7 +41,7 @@ function check(name, fn) {
     catch (e) { failed += 1; console.log('FAIL', name, '—', e.message); }
 }
 
-check('каталог совпадает с allowlist API (15 страниц)', () => {
+check('каталог совпадает с allowlist API (20 страниц)', () => {
     assert.deepEqual([...ALLOWED_ADMIN_PAGE_SLUGS].sort(), [...API_ALLOWED].sort());
 });
 check('slug не повторяются', () => {
@@ -72,7 +81,10 @@ check('в каталоге нет «ПДн» и Арлекинотур / Arlekin
     }
     assert.deepEqual(hits, []);
 });
-for (const slug of ['privacy-policy', 'consent']) {
+for (const slug of [
+    'privacy-policy', 'consent',
+    'tour-offer', 'hotel-booking', 'cancellation', 'tourist-memo', 'payment',
+]) {
     check(`«${slug}»: хлебные крошки и мобильный заголовок равны полному названию`, () => {
         const item = FOOTER_PAGE_BY_SLUG[slug];
         assert.equal(item.breadcrumbLabel, LEGAL[slug]);
