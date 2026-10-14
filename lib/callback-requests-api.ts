@@ -41,8 +41,10 @@ export function formatCallbackPhone(phone: string): string {
     return `+7 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9, 11)}`;
 }
 
-export function formatCallbackDate(value?: string | null): string {
-    if (!value) return '—';
+// API может прислать не строку (раньше created_at приходил как {}), а React
+// падает на объекте в JSX — поэтому всё, что не строка, показываем как «—».
+export function formatCallbackDate(value?: unknown): string {
+    if (typeof value !== 'string' || !value) return '—';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString('ru-RU', {

@@ -52,7 +52,10 @@ const NEXT_ACTIONS: Record<OrderRequestStatus, { status: OrderRequestStatus; lab
     rejected: [],
 };
 
-function formatDate(value: string): string {
+// Не строку (раньше created_at приходил из API как {}) не рендерим: объект в JSX
+// роняет страницу «Application error».
+function formatDate(value: unknown): string {
+    if (typeof value !== 'string' || !value) return '—';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
     return d.toLocaleString('ru-RU', {
