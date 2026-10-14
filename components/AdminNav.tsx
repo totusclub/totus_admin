@@ -27,6 +27,7 @@ const LINKS: NavLink[] = [
     { href: '/pages', label: 'Страницы', icon: 'file' },
     { href: '/home-content', label: 'Главная', icon: 'home' },
     { href: '/callback-requests', label: 'Заявки на звонок', icon: 'smartPhone' },
+    { href: '/partner-requests', label: 'Заявки партнёров', icon: 'list' },
     // Панель звонков живёт в отдельном приложении (calling_v2).
     { href: 'https://calling.totus.club', label: 'Звонки', icon: 'phone', external: true },
 ];
