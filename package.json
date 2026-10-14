@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3009",
     "lint": "next lint",
-    "check": "node scripts/check-legal-pages.mjs"
+    "check": "node scripts/check-legal-pages.mjs && node scripts/check-partner-requests.mjs"
   },
   "dependencies": {
     "next": "^14.0.0",
