@@ -11,6 +11,7 @@ import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon from '@/components/Icon';
 import { t, radius, text, button, cardStyle, textareaStyle } from '@/lib/theme';
+import { PageHeader, pageCard, space } from '@/components/PageKit';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import { ErrorBox, SuccessBox } from '@/components/notifications/shared';
 import {
@@ -36,8 +37,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function Card({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
     return (
-        <div style={{ ...cardStyle, padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <h2 style={{ ...text.cardTitle, margin: 0 }}>{title}</h2>
                 {right}
             </div>
@@ -180,36 +181,32 @@ function BookingContent() {
                 e.target.value = '';
             }} />
 
-            <div style={{ display: 'grid', gap: 16 }}>
-                <Breadcrumbs
-                    items={[
-                        { label: 'Отели и номера', onClick: () => router.push('/rooms?tab=bookings') },
-                        { label: 'Бронирования', onClick: () => router.push('/rooms?tab=bookings') },
-                        { label: b ? `№ ${b.orderId}` : `#${id}` },
-                    ]}
-                />
-
-                {loading ? (
-                    <div style={cardStyle}>
-                        <Spinner label="Загружаем бронирование..." />
-                    </div>
-                ) : null}
-
-                <ErrorBox message={error} />
-                <SuccessBox message={notice} />
-
-                {!loading && b && data ? (
-                    <>
-                        {/* Шапка */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                            <div>
-                                <h1 style={{ ...text.pageTitle, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gap: space.page }}>
+                {/* Шапка: крошки, заголовок и срок ожидания — одна карточка, как на других страницах-деталях */}
+                <div style={pageCard}>
+                    <PageHeader
+                        before={
+                            <Breadcrumbs
+                                items={[
+                                    { label: 'Отели и номера', onClick: () => router.push('/rooms?tab=bookings') },
+                                    { label: 'Бронирования', onClick: () => router.push('/rooms?tab=bookings') },
+                                    { label: b ? `№ ${b.orderId}` : `#${id}` },
+                                ]}
+                            />
+                        }
+                        title={
+                            b ? (
+                                <>
                                     Бронирование № {b.orderId}
                                     <BookingStatusBadge booking={b} size="md" />
-                                </h1>
-                                <div style={text.body}>{bookingSubtitle(b)}</div>
-                            </div>
-                            {isPending ? (
+                                </>
+                            ) : (
+                                'Бронирование'
+                            )
+                        }
+                        subtitle={b ? bookingSubtitle(b) : undefined}
+                        actions={
+                            b && isPending ? (
                                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: radius.md, background: t.warningSoft, color: t.warning }}>
                                     <Icon name="calendar" size={18} />
                                     <div>
@@ -217,12 +214,20 @@ function BookingContent() {
                                         <div style={{ fontSize: 12, lineHeight: '16px', opacity: 0.85 }}>с момента оплаты {formatShortDateTime(b.paidAt)} · автоотклонения нет</div>
                                     </div>
                                 </div>
-                            ) : null}
-                        </div>
+                            ) : undefined
+                        }
+                    />
+                    {loading ? <Spinner label="Загружаем бронирование..." /> : null}
+                </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 1fr)', gap: 16, alignItems: 'start' }}>
+                <ErrorBox message={error} />
+                <SuccessBox message={notice} />
+
+                {!loading && b && data ? (
+                    <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 1fr)', gap: space.page, alignItems: 'start' }}>
                             {/* Левая колонка */}
-                            <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+                            <div style={{ display: 'grid', gap: space.page, minWidth: 0 }}>
                                 <Card
                                     title="Бронирование"
                                     right={
@@ -259,7 +264,7 @@ function BookingContent() {
                                     </div>
                                 </Card>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: space.page }}>
                                     <Card title="Цена">
                                         <Row label="Цена Level.Travel">{formatMoney(b.providerPrice)}</Row>
                                         <Row label="Правило">{b.priceRule?.label || '—'}{b.operator ? ` (${b.operator})` : ''}</Row>
@@ -300,8 +305,8 @@ function BookingContent() {
                             </div>
 
                             {/* Правая колонка */}
-                            <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
-                                <div style={{ ...cardStyle, padding: 20, display: 'grid', gap: 10 }}>
+                            <div style={{ display: 'grid', gap: space.page, minWidth: 0 }}>
+                                <div style={{ ...cardStyle, display: 'grid', gap: 10 }}>
                                     {isPending ? (
                                         <>
                                             <button type="button" onClick={() => setConfirming(true)} style={{ ...button('primary', 'lg'), width: '100%' }}>
