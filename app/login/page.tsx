@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { staffSignIn } from '@/lib/staff-auth-api';
 import PageShell from '@/components/PageShell';
-import Icon from '@/components/Icon';
+import BrandLogo from '@/components/BrandLogo';
+import { ErrorBox } from '@/components/notifications/shared';
 import { t, radius, text, cardStyle, inputStyle, button } from '@/lib/theme';
 
 // Единый вход для сотрудников (staff-JWT totus_API). Агентский логин voip
@@ -60,22 +61,10 @@ export default function LoginPage() {
               gap: 12,
             }}
           >
-            <div
-              style={{
-                width: 54,
-                height: 54,
-                borderRadius: radius.pill,
-                background: t.accentSoft,
-                color: t.accent,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon name="user" size={26} />
-            </div>
+            {/* Логотип как на входе в Calling Dashboard (calling_v2). */}
+            <BrandLogo height={36} style={{ margin: '0 auto' }} />
             <div style={{ textAlign: 'center' }}>
-              <h1 style={{ ...text.pageTitle, margin: '0 0 4px' }}>Totus Admin</h1>
+              <h1 style={{ ...text.pageTitle, fontSize: 24, lineHeight: '32px', margin: '0 0 4px' }}>Totus Admin</h1>
               <p style={{ ...text.caption, margin: 0 }}>
                 Войдите как сотрудник, чтобы управлять платформой
               </p>
@@ -83,23 +72,8 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                marginBottom: 18,
-                padding: '10px 12px',
-                background: t.errorSoft,
-                border: `1px solid ${t.error}`,
-                borderRadius: radius.sm,
-                color: t.error,
-                fontSize: 13,
-                lineHeight: '18px',
-              }}
-            >
-              <Icon name="info" size={16} />
-              <span>{error}</span>
+            <div style={{ marginBottom: 18 }}>
+              <ErrorBox message={error} />
             </div>
           )}
 
