@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon from '@/components/Icon';
-import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
+import { PageHeader, Toolbar, SearchInput, RefreshButton, pageCard, listStyle, listItemStyle, emptyTextStyle } from '@/components/PageKit';
+import { t, text, button, badge } from '@/lib/theme';
 import {
     getAllOrders,
     getUserOrders,
@@ -102,90 +103,42 @@ function OrdersContent() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        marginBottom: 20,
-                    }}
-                >
-                    <div>
-                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
-                            {filterUser ? `Заказы — ${getUserDisplayName(filterUser)}` : 'Все заказы'}
-                        </h1>
-                        <div style={text.caption}>
+            <div style={pageCard}>
+                <PageHeader
+                    title={filterUser ? `Заказы — ${getUserDisplayName(filterUser)}` : 'Все заказы'}
+                    subtitle={
+                        <>
                             Всего заказов: {orders.length}
                             {filterUser && (
                                 <>
                                     {' '}· ID: <strong style={{ color: t.accent }}>{filterUser.loyaltyId}</strong>
                                 </>
                             )}
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        {userIdParam && (
-                            <button onClick={() => router.push('/orders')} style={button('secondary', 'md')}>
-                                <Icon name="arrowLeft" size={16} />
-                                Все заказы
-                            </button>
-                        )}
-                        <button
-                            onClick={load}
-                            disabled={loading}
-                            style={{
-                                ...button('secondary', 'md'),
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                opacity: loading ? 0.6 : 1,
-                            }}
-                        >
-                            <Icon name="refresh" size={16} />
-                            {loading ? 'Обновление...' : 'Обновить'}
-                        </button>
-                    </div>
-                </div>
+                        </>
+                    }
+                    actions={
+                        <>
+                            {userIdParam && (
+                                <button onClick={() => router.push('/orders')} style={button('secondary', 'md')}>
+                                    <Icon name="arrowLeft" size={16} />
+                                    Все заказы
+                                </button>
+                            )}
+                            <RefreshButton onClick={load} loading={loading} />
+                        </>
+                    }
+                />
 
-                <div
-                    style={{
-                        ...inputStyle,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        marginBottom: 20,
-                        color: t.textTertiary,
-                    }}
-                >
-                    <Icon name="search" size={18} />
-                    <input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Поиск по № заказа, отелю, клиенту..."
-                        style={{
-                            flex: 1,
-                            minWidth: 0,
-                            border: 'none',
-                            outline: 'none',
-                            background: 'transparent',
-                            color: t.textPrimary,
-                            fontSize: 14,
-                            fontFamily: 'inherit',
-                        }}
-                    />
-                </div>
+                <Toolbar>
+                    <SearchInput value={search} onChange={setSearch} placeholder="Поиск по № заказа, отелю, клиенту..." />
+                </Toolbar>
 
                 {loading && orders.length === 0 ? (
-                    <div style={{ ...text.body, color: t.textTertiary, padding: 24, textAlign: 'center' }}>
-                        Загрузка заказов...
-                    </div>
+                    <div style={emptyTextStyle}>Загрузка заказов...</div>
                 ) : filtered.length === 0 ? (
-                    <div style={{ ...text.body, color: t.textTertiary, padding: 24, textAlign: 'center' }}>
-                        Заказы не найдены
-                    </div>
+                    <div style={emptyTextStyle}>Заказы не найдены</div>
                 ) : (
-                    <div style={{ display: 'grid', gap: 12 }}>
+                    <div style={listStyle}>
                         {filtered.map((order) => {
                             const pkg = getPackageData(order);
                             const orderId = getOrderId(order);
@@ -207,10 +160,7 @@ function OrdersContent() {
                                     key={`${orderId}-${order.id}`}
                                     onClick={() => router.push(`/orders/${orderId}`)}
                                     style={{
-                                        padding: '18px 20px',
-                                        borderRadius: radius.lg,
-                                        border: `1px solid ${t.border}`,
-                                        background: t.surface,
+                                        ...listItemStyle,
                                         cursor: 'pointer',
                                         transition: 'background 0.15s, border-color 0.15s',
                                     }}
@@ -219,7 +169,7 @@ function OrdersContent() {
                                         e.currentTarget.style.borderColor = t.borderStrong;
                                     }}
                                     onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = t.surface;
+                                        e.currentTarget.style.background = t.surfaceInset;
                                         e.currentTarget.style.borderColor = t.border;
                                     }}
                                 >
@@ -285,7 +235,7 @@ function OrdersContent() {
 
 export default function OrdersPage() {
     return (
-        <Suspense fallback={<PageShell><div style={{ ...text.body, color: t.textTertiary, padding: 24 }}>Загрузка...</div></PageShell>}>
+        <Suspense fallback={<PageShell><AdminNav /><div style={{ ...text.body, color: t.textTertiary, padding: 24 }}>Загрузка...</div></PageShell>}>
             <OrdersContent />
         </Suspense>
     );
