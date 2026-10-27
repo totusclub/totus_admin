@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon from '@/components/Icon';
-import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
+import { t, radius, text, button, badge } from '@/lib/theme';
+import { PageHeader, Toolbar, SearchInput, RefreshButton, pageCard, listStyle, listItemStyle, emptyTextStyle, blockTitle } from '@/components/PageKit';
+import { ErrorBox } from '@/components/notifications/shared';
 import {
     getClientOrders,
     getClientOrder,
@@ -144,88 +146,51 @@ function LtOrdersContent() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                    }}
-                >
-                    <div>
-                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
-                            Заказы Level Travel
-                        </h1>
-                        <div style={{ ...text.caption, fontWeight: 500 }}>
-                            Заказы напрямую из Level Travel (GET /client/orders) — по auth_token конкретного заказа
-                        </div>
-                    </div>
-                    {!searchActive && token && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <button
-                                onClick={() => load(Math.max(0, pageNumber - 1))}
-                                disabled={prevDisabled}
-                                style={{
-                                    ...button('secondary', 'sm'),
-                                    borderRadius: radius.pill,
-                                    color: pageNumber === 0 ? t.textDisabled : t.textSecondary,
-                                    cursor: prevDisabled ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                <Icon name="arrowLeft" size={16} />
-                                Назад
-                            </button>
-                            <span style={text.caption}>Стр. {pageNumber + 1}</span>
-                            <button
-                                onClick={() => load(pageNumber + 1)}
-                                disabled={nextDisabled}
-                                style={{
-                                    ...button('secondary', 'sm'),
-                                    borderRadius: radius.pill,
-                                    color: orders.length < PAGE_LIMIT ? t.textDisabled : t.textSecondary,
-                                    cursor: nextDisabled ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                Вперёд
-                                <Icon name="chevronRight" size={16} />
-                            </button>
-                            <button
-                                onClick={() => load(pageNumber)}
-                                disabled={loading}
-                                style={{
-                                    ...button('secondary', 'sm'),
-                                    borderRadius: radius.pill,
-                                    background: t.accentSoft,
-                                    border: `1px solid ${t.accentBorder}`,
-                                    color: t.accent,
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                <Icon name="refresh" size={16} />
-                                {loading ? 'Загрузка...' : 'Обновить'}
-                            </button>
-                        </div>
-                    )}
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Заказы Level Travel"
+                    subtitle="Заказы напрямую из Level Travel (GET /client/orders) — по auth_token конкретного заказа"
+                    actions={
+                        !searchActive && token ? (
+                            <>
+                                <button
+                                    onClick={() => load(Math.max(0, pageNumber - 1))}
+                                    disabled={prevDisabled}
+                                    style={{
+                                        ...button('secondary', 'sm'),
+                                        color: pageNumber === 0 ? t.textDisabled : t.textSecondary,
+                                        cursor: prevDisabled ? 'not-allowed' : 'pointer',
+                                    }}
+                                >
+                                    <Icon name="arrowLeft" size={16} />
+                                    Назад
+                                </button>
+                                <span style={text.caption}>Стр. {pageNumber + 1}</span>
+                                <button
+                                    onClick={() => load(pageNumber + 1)}
+                                    disabled={nextDisabled}
+                                    style={{
+                                        ...button('secondary', 'sm'),
+                                        color: orders.length < PAGE_LIMIT ? t.textDisabled : t.textSecondary,
+                                        cursor: nextDisabled ? 'not-allowed' : 'pointer',
+                                    }}
+                                >
+                                    Вперёд
+                                    <Icon name="chevronRight" size={16} />
+                                </button>
+                                <RefreshButton onClick={() => load(pageNumber)} loading={loading} />
+                            </>
+                        ) : undefined
+                    }
+                />
 
-                {/* Search by order id */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
-                    <input
+                <Toolbar>
+                    <SearchInput
                         value={searchId}
-                        onChange={(e) => setSearchId(e.target.value)}
+                        onChange={setSearchId}
                         onKeyDown={(e) => e.key === 'Enter' && searchByOrderId()}
                         placeholder="Поиск по номеру заказа..."
                         inputMode="numeric"
-                        style={{
-                            ...inputStyle,
-                            flex: '1 1 260px',
-                            width: 'auto',
-                            minWidth: 200,
-                            background: t.surfaceInset,
-                            outline: 'none',
-                        }}
                     />
                     <button
                         onClick={searchByOrderId}
@@ -252,7 +217,7 @@ function LtOrdersContent() {
                             Сбросить
                         </button>
                     )}
-                </div>
+                </Toolbar>
 
                 {!loading && !loaded && !error && !internalBookingId && (
                     <div
@@ -260,7 +225,6 @@ function LtOrdersContent() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 8,
-                            marginTop: 16,
                             padding: '10px 12px',
                             borderRadius: radius.sm,
                             background: t.surfaceInset,
@@ -284,7 +248,6 @@ function LtOrdersContent() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 8,
-                            marginTop: 16,
                             padding: '10px 12px',
                             borderRadius: radius.sm,
                             background: t.accentSoft,
@@ -307,42 +270,21 @@ function LtOrdersContent() {
                     </div>
                 )}
 
-                {error && (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            marginTop: 16,
-                            padding: '10px 12px',
-                            borderRadius: radius.sm,
-                            background: t.errorSoft,
-                            border: `1px solid ${t.error}`,
-                            color: t.error,
-                            fontSize: 13,
-                            lineHeight: '18px',
-                        }}
-                    >
-                        <Icon name="info" size={16} />
-                        <span>{error}</span>
-                    </div>
-                )}
+                <ErrorBox message={error} />
             </div>
 
             {loaded && !error && internalBookingId == null && (
-                <div style={cardStyle}>
-                    <div style={{ ...text.cardTitle, marginBottom: 16 }}>
+                <div style={pageCard}>
+                    <div style={blockTitle}>
                         {searchActive
                             ? `Результат поиска: ${orders.length}`
                             : `Заказов на странице: ${orders.length}`}
                     </div>
 
                     {orders.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', ...text.body, color: t.textTertiary }}>
-                            Заказы не найдены
-                        </div>
+                        <div style={emptyTextStyle}>Заказы не найдены</div>
                     ) : (
-                        <div style={{ display: 'grid', gap: 12 }}>
+                        <div style={listStyle}>
                             {orders.map((order, idx) => {
                                 const pkg = getPackageData(order) || order.package || order;
                                 const orderId = getOrderId(order);
@@ -361,10 +303,7 @@ function LtOrdersContent() {
                                         key={`${orderId}-${idx}`}
                                         onClick={() => orderId != null && router.push(`/orders/${orderId}`)}
                                         style={{
-                                            padding: '18px 20px',
-                                            borderRadius: radius.md,
-                                            border: `1px solid ${t.border}`,
-                                            background: t.surfaceInset,
+                                            ...listItemStyle,
                                             cursor: orderId != null ? 'pointer' : 'default',
                                             transition: 'transform 0.2s, box-shadow 0.2s, background 0.2s',
                                         }}
@@ -425,7 +364,7 @@ function LtOrdersContent() {
 
 export default function LtOrdersPage() {
     return (
-        <Suspense fallback={<PageShell><div style={{ ...text.body, padding: 24 }}>Загрузка...</div></PageShell>}>
+        <Suspense fallback={<PageShell><AdminNav /><div style={{ ...text.body, padding: 24 }}>Загрузка...</div></PageShell>}>
             <LtOrdersContent />
         </Suspense>
     );

@@ -20,7 +20,6 @@ import {
 import {
     t,
     text,
-    cardStyle,
     inputStyle,
     textareaStyle,
     sectionBox,
@@ -28,6 +27,7 @@ import {
     button,
     badge,
 } from '@/lib/theme';
+import { PageHeader, pageCard } from '@/components/PageKit';
 
 const fieldLabel: React.CSSProperties = {
     display: 'block',
@@ -142,16 +142,14 @@ export default function CmsPageEditorPage() {
         return (
             <PageShell>
                 <AdminNav />
-                <div style={cardStyle}>
-                    <h1 style={{ margin: 0, ...text.pageTitle }}>Страница не найдена</h1>
-                    <button
-                        type="button"
-                        onClick={() => router.push('/pages')}
-                        style={{ ...button('primary'), marginTop: 16 }}
-                    >
-                        <Icon name="arrowLeft" size={16} />
-                        Назад к списку
-                    </button>
+                <div style={pageCard}>
+                    <PageHeader title="Страница не найдена" />
+                    <div>
+                        <button type="button" onClick={() => router.push('/pages')} style={button('primary')}>
+                            <Icon name="arrowLeft" size={16} />
+                            Назад к списку
+                        </button>
+                    </div>
                 </div>
             </PageShell>
         );
@@ -161,66 +159,58 @@ export default function CmsPageEditorPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: 16,
-                        flexWrap: 'wrap',
-                        marginBottom: 24,
-                    }}
-                >
-                    <div>
-                        <button
-                            type="button"
-                            onClick={() => router.push('/pages')}
-                            style={{ ...button('tertiary', 'sm'), padding: 0, marginBottom: 8 }}
-                        >
-                            <Icon name="arrowLeft" size={16} />
-                            Все страницы
-                        </button>
-                        <h1 style={{ margin: 0, ...text.pageTitle }}>{catalog.title}</h1>
-                        <p style={{ margin: '8px 0 0', ...text.body, color: t.textTertiary }}>
-                            /{slug} · {sectionLabel}
-                        </p>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <a
-                            href={`${PUBLIC_SITE_URL}${catalog.publicPath}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ ...button('secondary'), textDecoration: 'none' }}
-                        >
-                            <Icon name="linkExternal" size={16} />
-                            Открыть на сайте
-                        </a>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving || loading}
-                            style={{
-                                ...button('primary'),
-                                opacity: saving || loading ? 0.6 : 1,
-                                cursor: saving || loading ? 'wait' : 'pointer',
-                            }}
-                        >
-                            <Icon name="check" size={16} />
-                            {saving ? 'Сохранение...' : 'Сохранить'}
-                        </button>
-                    </div>
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    before={
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() => router.push('/pages')}
+                                style={{ ...button('tertiary', 'sm'), padding: 0 }}
+                            >
+                                <Icon name="arrowLeft" size={16} />
+                                Все страницы
+                            </button>
+                        </div>
+                    }
+                    title={catalog.title}
+                    subtitle={`/${slug} · ${sectionLabel}`}
+                    actions={
+                        <>
+                            <a
+                                href={`${PUBLIC_SITE_URL}${catalog.publicPath}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ ...button('secondary'), textDecoration: 'none' }}
+                            >
+                                <Icon name="linkExternal" size={16} />
+                                Открыть на сайте
+                            </a>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving || loading}
+                                style={{
+                                    ...button('primary'),
+                                    opacity: saving || loading ? 0.6 : 1,
+                                    cursor: saving || loading ? 'wait' : 'pointer',
+                                }}
+                            >
+                                <Icon name="check" size={16} />
+                                {saving ? 'Сохранение...' : 'Сохранить'}
+                            </button>
+                        </>
+                    }
+                />
 
                 {savedAt ? (
-                    <div style={{ ...badge('success'), marginBottom: 18 }}>
+                    <div style={{ ...badge('success'), alignSelf: 'flex-start' }}>
                         <Icon name="check" size={14} />
                         Сохранено в {savedAt}
                     </div>
                 ) : null}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <div
                         style={{
                             display: 'grid',
