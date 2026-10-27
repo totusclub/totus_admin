@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import { text, cardStyle } from '@/lib/theme';
+import { PageHeader, pageCard } from '@/components/PageKit';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import { ErrorBox } from '@/components/notifications/shared';
 import { Breadcrumbs, Spinner } from '@/components/rooms/shared';
@@ -65,22 +65,24 @@ export default function OperatorPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <Breadcrumbs items={[{ label: 'Операторы', onClick: () => router.push('/operators') }, { label: operator ? operator.name : '…' }]} />
-
-                <div style={{ margin: '12px 0 20px' }}>
-                    <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>{operator ? operator.name : 'Оператор'}</h1>
-                    {operator ? (
-                        <div style={{ ...text.caption, fontWeight: 500 }}>
-                            operator_id {operator.operatorId}
-                            {operator.createdBy ? ` · создал: ${operator.createdBy}` : ''}
-                        </div>
-                    ) : null}
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    before={<Breadcrumbs items={[{ label: 'Операторы', onClick: () => router.push('/operators') }, { label: operator ? operator.name : '…' }]} />}
+                    title={operator ? operator.name : 'Оператор'}
+                    subtitle={
+                        operator
+                            ? `operator_id ${operator.operatorId}${operator.createdBy ? ` · создал: ${operator.createdBy}` : ''}`
+                            : undefined
+                    }
+                />
 
                 <ErrorBox message={error} />
                 {loading && !operator ? <Spinner label="Загружаем оператора" /> : null}
-                {operator ? <OperatorEditor operator={operator} onReload={load} /> : null}
+                {operator ? (
+                    <div style={{ minWidth: 0 }}>
+                        <OperatorEditor operator={operator} onReload={load} />
+                    </div>
+                ) : null}
             </div>
         </PageShell>
     );

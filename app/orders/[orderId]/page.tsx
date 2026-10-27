@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon from '@/components/Icon';
-import { t, radius, text, cardStyle, sectionTitle, button, badge } from '@/lib/theme';
+import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
+import { PageHeader, pageCard, blockTitle } from '@/components/PageKit';
 import {
     getOrder,
     getOrderDocuments,
@@ -25,6 +26,9 @@ import {
     type Order,
 } from '@/lib/orders-api';
 import { getUserById, getUserDisplayName, type User } from '@/lib/users-api';
+
+/** Заголовок раздела карточки — 16/24, как на остальных страницах-деталях. */
+const sectionTitle: React.CSSProperties = { ...blockTitle, marginBottom: 8 };
 
 type StatusTone = 'success' | 'info' | 'warning' | 'error' | 'neutral';
 
@@ -218,36 +222,44 @@ export default function OrderDetailPage() {
         <PageShell>
             <AdminNav />
 
-            <button onClick={() => router.back()} style={{ ...button('secondary', 'md'), width: 'fit-content' }}>
-                <Icon name="arrowLeft" size={16} />
-                Назад
-            </button>
-
-            {loading ? (
-                <div style={{ ...cardStyle, ...text.body, color: t.textTertiary, textAlign: 'center' }}>Загрузка заказа...</div>
-            ) : error ? (
-                <div style={{ ...cardStyle, ...text.body, color: t.error, textAlign: 'center' }}>{error}</div>
-            ) : !order ? (
-                <div style={{ ...cardStyle, ...text.body, color: t.textTertiary, textAlign: 'center' }}>Заказ не найден</div>
+            {loading || error || !order ? (
+                <div style={pageCard}>
+                    <div>
+                        <button onClick={() => router.back()} style={{ ...button('tertiary', 'sm'), padding: 0 }}>
+                            <Icon name="arrowLeft" size={16} />
+                            Назад
+                        </button>
+                    </div>
+                    <div style={{ ...text.body, color: error ? t.error : t.textTertiary, textAlign: 'center', padding: 24 }}>
+                        {loading ? 'Загрузка заказа...' : error ? error : 'Заказ не найден'}
+                    </div>
+                </div>
             ) : (
                 <>
                     {/* Header / summary */}
-                    <div style={cardStyle}>
-                        <div
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: 12,
-                                flexWrap: 'wrap',
-                                marginBottom: 16,
-                            }}
-                        >
-                            <h1 style={{ ...text.pageTitle, margin: 0 }}>
-                                Тур № {getOrderId(order)}
-                            </h1>
-                            <span style={{ ...badge(statusBadgeTone), whiteSpace: 'nowrap' }}>{statusLabel}</span>
-                        </div>
+                    <div style={pageCard}>
+                        <PageHeader
+                            before={
+                                <div>
+                                    <button onClick={() => router.back()} style={{ ...button('tertiary', 'sm'), padding: 0 }}>
+                                        <Icon name="arrowLeft" size={16} />
+                                        Назад
+                                    </button>
+                                </div>
+                            }
+                            title={
+                                <>
+                                    Тур № {getOrderId(order)}
+                                    <span style={{ ...badge(statusBadgeTone), whiteSpace: 'nowrap' }}>{statusLabel}</span>
+                                </>
+                            }
+                            subtitle={
+                                <>
+                                    Создан: {formatOrderDate((order as any)?.c_date || pkg?.created_at)}
+                                    {(order as any)?.pay_status ? ` · pay_status: ${(order as any).pay_status}` : ''}
+                                </>
+                            }
+                        />
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                             <div style={text.sectionTitle}>{getOrderPrice(order)}</div>
@@ -256,10 +268,6 @@ export default function OrderDetailPage() {
                             ) : (
                                 <span style={badge('success')}>Оплачено</span>
                             )}
-                        </div>
-                        <div style={{ ...text.caption, marginTop: 6 }}>
-                            Создан: {formatOrderDate((order as any)?.c_date || pkg?.created_at)}
-                            {(order as any)?.pay_status ? ` · pay_status: ${(order as any).pay_status}` : ''}
                         </div>
                     </div>
 

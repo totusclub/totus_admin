@@ -11,7 +11,8 @@ import {
     SECTION_LABELS,
 } from '@/lib/footer-pages-catalog';
 import { getAllCmsPages, hasPublishedContent, type CmsPage } from '@/lib/pages-api';
-import { t, radius, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
+import { t, radius, text, button, badge } from '@/lib/theme';
+import { PageHeader, Toolbar, SearchInput, pageCard, emptyTextStyle } from '@/components/PageKit';
 
 export default function CmsPagesListPage() {
     const router = useRouter();
@@ -65,62 +66,32 @@ export default function CmsPagesListPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: 16,
-                        flexWrap: 'wrap',
-                        marginBottom: 24,
-                    }}
-                >
-                    <div>
-                        <h1 style={{ margin: 0, ...text.pageTitle }}>Страницы сайта</h1>
-                        <p style={{ margin: '8px 0 0', ...text.body, color: t.textTertiary, maxWidth: 680 }}>
-                            Редактируйте только страницы из футера сайта Totus Club (11 страниц). Изменения
-                            появятся на сайте после сохранения.
-                        </p>
-                    </div>
-                    <div style={badge('accent')}>
-                        Опубликовано: {publishedCount} / {FOOTER_PAGE_CATALOG.length}
-                    </div>
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Страницы сайта"
+                    subtitle="Редактируйте только страницы из футера сайта Totus Club (11 страниц). Изменения появятся на сайте после сохранения."
+                    actions={
+                        <span style={badge('accent')}>
+                            Опубликовано: {publishedCount} / {FOOTER_PAGE_CATALOG.length}
+                        </span>
+                    }
+                />
 
-                <div style={{ position: 'relative', marginBottom: 24 }}>
-                    <span
-                        aria-hidden
-                        style={{
-                            position: 'absolute',
-                            left: 14,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: t.textTertiary,
-                            display: 'flex',
-                        }}
-                    >
-                        <Icon name="search" size={18} />
-                    </span>
-                    <input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Поиск по названию или slug..."
-                        style={{ ...inputStyle, paddingLeft: 42, outline: 'none' }}
-                    />
-                </div>
+                <Toolbar>
+                    <SearchInput value={search} onChange={setSearch} placeholder="Поиск по названию или slug..." />
+                </Toolbar>
 
                 {filtered.length === 0 ? (
-                    <div style={{ ...text.caption, padding: 24 }}>Страницы не найдены</div>
+                    <div style={emptyTextStyle}>Страницы не найдены</div>
                 ) : (
                     Object.entries(grouped).map(([groupName, items]) => (
-                        <div key={groupName} style={{ marginBottom: 28 }}>
-                            <h2 style={{ margin: '0 0 14px', ...text.cardTitle }}>{groupName}</h2>
+                        <div key={groupName} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <h2 style={{ margin: 0, ...text.cardTitle }}>{groupName}</h2>
                             <div
                                 style={{
                                     display: 'grid',
                                     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                                    gap: 14,
+                                    gap: 12,
                                 }}
                             >
                                 {items.map((item) => {
@@ -130,8 +101,8 @@ export default function CmsPagesListPage() {
                                         <div
                                             key={item.slug}
                                             style={{
-                                                padding: 18,
-                                                borderRadius: radius.lg,
+                                                padding: '16px 20px',
+                                                borderRadius: radius.md,
                                                 border: `1px solid ${t.border}`,
                                                 background: t.surfaceInset,
                                                 display: 'flex',

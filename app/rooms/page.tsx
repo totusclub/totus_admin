@@ -8,8 +8,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import Icon from '@/components/Icon';
-import { t, text, cardStyle } from '@/lib/theme';
+import { PageHeader, pageCard } from '@/components/PageKit';
 import { getStaffAuth, staffLogout, staffDisplayName, type StaffAuth } from '@/lib/staff-auth-api';
 import HotelsTab from '@/components/rooms/HotelsTab';
 import RoomTypesTab from '@/components/rooms/RoomTypesTab';
@@ -75,30 +74,27 @@ function RoomsContent() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
-                    <div>
-                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <Icon name="hotel" size={28} style={{ color: t.accent }} />
-                            Отели и номера
-                        </h1>
-                        <div style={{ ...text.caption, fontWeight: 500 }}>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Отели и номера"
+                    subtitle={
+                        <>
                             {tab === 'bookings'
                                 ? `Бронирования наших Room Type · ${summary?.pending ? `${summary.pending} ожидают подтверждения` : 'новых нет'}`
                                 : 'Поиск отелей Level.Travel и наши Room Type'}{' '}
                             · Сотрудник: {staffDisplayName(auth)}
-                        </div>
-                    </div>
-                </div>
+                        </>
+                    }
+                />
 
-                <div style={{ marginBottom: 20 }}>
-                    <TabPills tabs={TABS.map((x) => (x.value === 'bookings' && summary?.pending ? { ...x, label: `Бронирования (${summary.pending})` } : x))} value={tab} onChange={setTab} />
-                </div>
+                <TabPills tabs={TABS.map((x) => (x.value === 'bookings' && summary?.pending ? { ...x, label: `Бронирования (${summary.pending})` } : x))} value={tab} onChange={setTab} />
 
-                {tab === 'hotels' ? <HotelsTab initialParams={searchParams} /> : null}
-                {tab === 'room-types' ? <RoomTypesTab /> : null}
-                {tab === 'bookings' ? <BookingsTab onSummary={onSummary} /> : null}
-                {tab === 'settings' ? <SettingsTab /> : null}
+                <div style={{ minWidth: 0 }}>
+                    {tab === 'hotels' ? <HotelsTab initialParams={searchParams} /> : null}
+                    {tab === 'room-types' ? <RoomTypesTab /> : null}
+                    {tab === 'bookings' ? <BookingsTab onSummary={onSummary} /> : null}
+                    {tab === 'settings' ? <SettingsTab /> : null}
+                </div>
             </div>
         </PageShell>
     );

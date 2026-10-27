@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import { t, text, cardStyle } from '@/lib/theme';
+import { PageHeader, pageCard, space } from '@/components/PageKit';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import { ErrorBox } from '@/components/notifications/shared';
 import { getRoomType, getRoomSettings, getHotelRooms, type LtOffer, type RoomSettings, type RoomType } from '@/lib/rooms-api';
@@ -93,19 +93,9 @@ function EditorContent() {
         <PageShell>
             <AdminNav />
 
-            <div style={{ display: 'grid', gap: 16 }}>
-                {roomType ? (
-                    <Breadcrumbs
-                        items={[
-                            { label: 'Отели и номера', onClick: () => router.push('/rooms?tab=room-types') },
-                            { label: roomType.hotelName || `Отель #${roomType.hotelId}`, onClick: () => router.push(hotelUrl(roomType)) },
-                            { label: roomType.content?.nameRu || `Room Type #${roomType.id}` },
-                        ]}
-                    />
-                ) : null}
-
+            <div style={{ display: 'grid', gap: space.page }}>
                 {loading ? (
-                    <div style={cardStyle}>
+                    <div style={pageCard}>
                         <Spinner label="Загружаем Room Type..." />
                     </div>
                 ) : null}
@@ -114,12 +104,29 @@ function EditorContent() {
 
                 {!loading && roomType ? (
                     <>
-                        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            <BrandBadge label={roomType.badge} />
-                            <h1 style={{ ...text.pageTitle, fontSize: 28, lineHeight: '36px', margin: 0 }}>{roomType.content?.nameRu}</h1>
-                            <span style={{ ...text.body, color: t.textSecondary }}>
-                                {roomType.pricingMode === 'fixed' ? 'цена' : 'правило'} {roomTypeLabel(roomType)} · {roomType.operatorName || 'Arlekino'} · у номера «{roomType.sourceRoomName || roomType.sourceRoomId}»
-                            </span>
+                        <div style={pageCard}>
+                            <PageHeader
+                                before={
+                                    <Breadcrumbs
+                                        items={[
+                                            { label: 'Отели и номера', onClick: () => router.push('/rooms?tab=room-types') },
+                                            { label: roomType.hotelName || `Отель #${roomType.hotelId}`, onClick: () => router.push(hotelUrl(roomType)) },
+                                            { label: roomType.content?.nameRu || `Room Type #${roomType.id}` },
+                                        ]}
+                                    />
+                                }
+                                title={
+                                    <>
+                                        <BrandBadge label={roomType.badge} />
+                                        {roomType.content?.nameRu}
+                                    </>
+                                }
+                                subtitle={
+                                    <>
+                                        {roomType.pricingMode === 'fixed' ? 'цена' : 'правило'} {roomTypeLabel(roomType)} · {roomType.operatorName || 'Arlekino'} · у номера «{roomType.sourceRoomName || roomType.sourceRoomId}»
+                                    </>
+                                }
+                            />
                         </div>
                         <RoomTypeEditor
                             roomType={roomType}

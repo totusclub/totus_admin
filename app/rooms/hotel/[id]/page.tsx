@@ -8,7 +8,8 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import { t, text, cardStyle, button } from '@/lib/theme';
+import { button } from '@/lib/theme';
+import { PageHeader, pageCard, space } from '@/components/PageKit';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import { ErrorBox, SuccessBox } from '@/components/notifications/shared';
 import { getHotelRooms, toggleRoomType, type HotelRoomsResult, type OperatorGroup, type OperatorRoom, type RoomType } from '@/lib/rooms-api';
@@ -140,33 +141,31 @@ function HotelContent() {
         <PageShell>
             <AdminNav />
 
-            <div style={{ display: 'grid', gap: 16 }}>
-                <Breadcrumbs items={[{ label: 'Отели', onClick: backToSearch }, { label: hotelName }]} />
-
-                <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 260 }}>
-                        <h1 style={{ ...text.pageTitle, fontSize: 28, lineHeight: '36px', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            {hotelName}
-                            <Stars count={hotelStars} size={16} />
-                        </h1>
-                        <div style={text.body}>
-                            {hotelCity || '—'}
-                            {operators.length ? ` · Операторы: ${operators.join(', ')}` : ''}
-                        </div>
-                        <div style={{ ...text.body, color: t.textPrimary, marginTop: 4 }}>Даты поиска: {summary}</div>
-                    </div>
-                    <button type="button" onClick={backToSearch} style={button('secondary', 'md')}>Изменить даты</button>
+            <div style={{ display: 'grid', gap: space.page }}>
+                <div style={pageCard}>
+                    <PageHeader
+                        before={<Breadcrumbs items={[{ label: 'Отели', onClick: backToSearch }, { label: hotelName }]} />}
+                        title={
+                            <>
+                                {hotelName}
+                                <Stars count={hotelStars} size={16} />
+                            </>
+                        }
+                        subtitle={
+                            <>
+                                {hotelCity || '—'}
+                                {operators.length ? ` · Операторы: ${operators.join(', ')}` : ''} · Даты поиска: {summary}
+                            </>
+                        }
+                        actions={<button type="button" onClick={backToSearch} style={button('secondary', 'md')}>Изменить даты</button>}
+                    />
                 </div>
 
-                <div style={cardStyle}>
-                    <div style={{ marginBottom: 20 }}>
-                        <TabPills tabs={tabs} value={view} onChange={setView} />
-                    </div>
+                <div style={pageCard}>
+                    <TabPills tabs={tabs} value={view} onChange={setView} />
 
-                    <div style={{ display: 'grid', gap: 12, marginBottom: error || notice ? 16 : 0 }}>
-                        <ErrorBox message={error} />
-                        <SuccessBox message={notice} />
-                    </div>
+                    <ErrorBox message={error} />
+                    <SuccessBox message={notice} />
 
                     {loading ? <Spinner label="Загружаем номера Level.Travel..." /> : null}
 
@@ -184,7 +183,7 @@ function HotelContent() {
 
                     {!loading && result && view === 'room-types' ? (
                         roomTypes.length ? (
-                            <div style={{ display: 'grid', gap: 10 }}>
+                            <div style={{ display: 'grid', gap: space.list }}>
                                 {roomTypes.map((rt) => (
                                     <RoomTypeCard key={rt.id} rt={rt} busy={busyId === rt.id} onEdit={() => router.push(editorUrl(rt.id))} onDuplicate={() => setDuplicate(rt)} onToggle={(active) => onToggle(rt, active)} />
                                 ))}

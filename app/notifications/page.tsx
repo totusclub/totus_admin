@@ -7,8 +7,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import Icon from '@/components/Icon';
-import { t, radius, text, cardStyle, button } from '@/lib/theme';
+import { PageHeader, pageCard } from '@/components/PageKit';
+import { TabPills } from '@/components/rooms/shared';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import { getPushStatus, type PushStatusInfo } from '@/lib/push-api';
 import CampaignsTab from '@/components/notifications/CampaignsTab';
@@ -84,55 +84,27 @@ function NotificationsContent() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
-                    <div>
-                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <Icon name="bell" size={28} style={{ color: t.accent }} />
-                            Уведомления
-                        </h1>
-                        <div style={{ ...text.caption, fontWeight: 500 }}>
-                            {status
-                                ? `FCM: ${onOff(status.fcm)} · Web Push: ${onOff(status.webpush)} · ${quietHoursText(status)}`
-                                : statusError
-                                    ? 'Статус хаба недоступен'
-                                    : 'Проверяем статус хаба...'}
-                        </div>
-                    </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Уведомления"
+                    subtitle={
+                        status
+                            ? `FCM: ${onOff(status.fcm)} · Web Push: ${onOff(status.webpush)} · ${quietHoursText(status)}`
+                            : statusError
+                                ? 'Статус хаба недоступен'
+                                : 'Проверяем статус хаба...'
+                    }
+                />
+
+                <ErrorBox message={statusError} />
+
+                <TabPills tabs={TABS} value={tab} onChange={setTab} />
+
+                <div style={{ minWidth: 0 }}>
+                    {tab === 'campaigns' ? <CampaignsTab staffEmail={staffEmail} /> : null}
+                    {tab === 'reminders' ? <RemindersTab staffEmail={staffEmail} /> : null}
+                    {tab === 'history' ? <HistoryTab /> : null}
                 </div>
-
-                {statusError ? (
-                    <div style={{ marginBottom: 16 }}>
-                        <ErrorBox message={statusError} />
-                    </div>
-                ) : null}
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                    {TABS.map((item) => {
-                        const active = tab === item.value;
-                        return (
-                            <button
-                                key={item.value}
-                                type="button"
-                                onClick={() => setTab(item.value)}
-                                aria-current={active ? 'page' : undefined}
-                                style={{
-                                    ...button('secondary', 'sm'),
-                                    borderRadius: radius.pill,
-                                    background: active ? t.accentSoft : t.surfaceInset,
-                                    border: `1px solid ${active ? t.accentBorder : t.border}`,
-                                    color: active ? t.accent : t.textTertiary,
-                                }}
-                            >
-                                {item.label}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {tab === 'campaigns' ? <CampaignsTab staffEmail={staffEmail} /> : null}
-                {tab === 'reminders' ? <RemindersTab staffEmail={staffEmail} /> : null}
-                {tab === 'history' ? <HistoryTab /> : null}
             </div>
         </PageShell>
     );
