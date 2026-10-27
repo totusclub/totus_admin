@@ -11,7 +11,9 @@ import {
     getCallbackRequests,
     type CallbackRequest,
 } from '@/lib/callback-requests-api';
-import { t, text, cardStyle, inputStyle, button, badge } from '@/lib/theme';
+import { t, text, button, badge } from '@/lib/theme';
+import { PageHeader, Toolbar, SearchInput, RefreshButton, pageCard, emptyTextStyle } from '@/components/PageKit';
+import { TableWrap, tableStyle, thStyle, tdStyle } from '@/components/rooms/shared';
 
 export default function CallbackRequestsPage() {
     const [requests, setRequests] = useState<CallbackRequest[]>([]);
@@ -59,77 +61,33 @@ export default function CallbackRequestsPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: 16,
-                        flexWrap: 'wrap',
-                        marginBottom: 24,
-                    }}
-                >
-                    <div>
-                        <h1 style={{ margin: 0, ...text.pageTitle }}>Заявки на звонок</h1>
-                        <p style={{ margin: '8px 0 0', ...text.body, color: t.textTertiary, maxWidth: 680 }}>
-                            Номера телефонов, оставленные на главной странице сайта в блоке «Перезвоните мне».
-                        </p>
-                    </div>
-                    <div style={badge('accent')}>Всего: {requests.length}</div>
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Заявки на звонок"
+                    subtitle="Номера телефонов, оставленные на главной странице сайта в блоке «Перезвоните мне»."
+                    actions={
+                        <>
+                            <span style={badge('accent')}>Всего: {requests.length}</span>
+                            <RefreshButton onClick={load} loading={loading} />
+                        </>
+                    }
+                />
 
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-                    <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 220 }}>
-                        <span
-                            aria-hidden
-                            style={{
-                                position: 'absolute',
-                                left: 14,
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                color: t.textTertiary,
-                                display: 'flex',
-                            }}
-                        >
-                            <Icon name="search" size={18} />
-                        </span>
-                        <input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Поиск по телефону или ID"
-                            style={{ ...inputStyle, paddingLeft: 42, outline: 'none' }}
-                        />
-                    </div>
-                    <button onClick={load} style={button('primary')}>
-                        <Icon name="refresh" size={16} />
-                        Обновить
-                    </button>
-                </div>
+                <Toolbar>
+                    <SearchInput value={search} onChange={setSearch} placeholder="Поиск по телефону или ID" />
+                </Toolbar>
 
                 {loading ? (
-                    <p style={text.caption}>Загрузка...</p>
+                    <div style={emptyTextStyle}>Загрузка...</div>
                 ) : filtered.length === 0 ? (
-                    <p style={text.caption}>Заявок пока нет.</p>
+                    <div style={emptyTextStyle}>Заявок пока нет.</div>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+                    <TableWrap>
+                        <table style={{ ...tableStyle, minWidth: 560 }}>
                             <thead>
-                                <tr style={{ borderBottom: `1px solid ${t.border}` }}>
+                                <tr>
                                     {['ID', 'Телефон', 'Дата', 'Действия'].map((title) => (
-                                        <th
-                                            key={title}
-                                            style={{
-                                                textAlign: 'left',
-                                                padding: '12px 10px',
-                                                color: t.textTertiary,
-                                                fontSize: 12,
-                                                lineHeight: '16px',
-                                                fontWeight: 600,
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.04em',
-                                            }}
-                                        >
+                                        <th key={title} style={thStyle}>
                                             {title}
                                         </th>
                                     ))}
@@ -137,11 +95,11 @@ export default function CallbackRequestsPage() {
                             </thead>
                             <tbody>
                                 {filtered.map((item) => (
-                                    <tr key={item.id} style={{ borderBottom: `1px solid ${t.border}` }}>
-                                        <td style={{ padding: '14px 10px', ...text.body }}>#{item.id}</td>
+                                    <tr key={item.id}>
+                                        <td style={{ ...tdStyle, ...text.body }}>#{item.id}</td>
                                         <td
                                             style={{
-                                                padding: '14px 10px',
+                                                ...tdStyle,
                                                 ...text.body,
                                                 color: t.textPrimary,
                                                 fontWeight: 600,
@@ -161,10 +119,10 @@ export default function CallbackRequestsPage() {
                                                 {item.phone_display || formatCallbackPhone(item.phone)}
                                             </a>
                                         </td>
-                                        <td style={{ padding: '14px 10px', ...text.body, color: t.textTertiary }}>
+                                        <td style={{ ...tdStyle, ...text.body, color: t.textTertiary }}>
                                             {formatCallbackDate(item.created_at)}
                                         </td>
-                                        <td style={{ padding: '14px 10px' }}>
+                                        <td style={tdStyle}>
                                             <button onClick={() => handleDelete(item)} style={button('danger', 'sm')}>
                                                 <Icon name="delete" size={16} />
                                                 Удалить
@@ -174,7 +132,7 @@ export default function CallbackRequestsPage() {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+                    </TableWrap>
                 )}
             </div>
         </PageShell>

@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon, { type IconName } from '@/components/Icon';
-import { t, radius, text, cardStyle, button, badge } from '@/lib/theme';
+import { t, radius, text, button, badge } from '@/lib/theme';
+import { PageHeader, Toolbar, RefreshButton, pageCard, listStyle, listItemStyle, emptyTextStyle } from '@/components/PageKit';
+import { TabPills } from '@/components/rooms/shared';
+import { ErrorBox } from '@/components/notifications/shared';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import {
     listOrderRequests,
@@ -168,87 +171,25 @@ export default function OrderRequestsPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        marginBottom: 18,
-                    }}
-                >
-                    <div>
-                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>
-                            Обращения по заказам
-                        </h1>
-                        <div style={{ ...text.caption, fontWeight: 500 }}>
-                            Всего: {total}
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => load()}
-                        disabled={loading}
-                        style={{
-                            ...button('secondary', 'md'),
-                            borderRadius: radius.pill,
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                        }}
-                    >
-                        <Icon name="refresh" size={16} />
-                        {loading ? 'Обновление...' : 'Обновить'}
-                    </button>
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Обращения по заказам"
+                    subtitle={`Всего: ${total}`}
+                    actions={<RefreshButton onClick={() => load()} loading={loading} />}
+                />
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                    {FILTERS.map((f) => {
-                        const active = filter === f.value;
-                        return (
-                            <button
-                                key={f.value || 'all'}
-                                onClick={() => setFilter(f.value)}
-                                style={{
-                                    ...button('secondary', 'sm'),
-                                    borderRadius: radius.pill,
-                                    background: active ? t.accentSoft : t.surfaceInset,
-                                    border: `1px solid ${active ? t.accentBorder : t.border}`,
-                                    color: active ? t.accent : t.textTertiary,
-                                }}
-                            >
-                                {f.label}
-                            </button>
-                        );
-                    })}
-                </div>
+                <Toolbar>
+                    <TabPills tabs={FILTERS} value={filter} onChange={setFilter} />
+                </Toolbar>
 
-                {listError && (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            marginBottom: 16,
-                            padding: '10px 12px',
-                            background: t.errorSoft,
-                            border: `1px solid ${t.error}`,
-                            borderRadius: radius.sm,
-                            color: t.error,
-                            fontSize: 13,
-                            lineHeight: '18px',
-                        }}
-                    >
-                        <Icon name="info" size={16} />
-                        <span>{listError}</span>
-                    </div>
-                )}
+                <ErrorBox message={listError} />
 
                 {requests.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', ...text.body, color: t.textTertiary }}>
+                    <div style={emptyTextStyle}>
                         {loading ? 'Загрузка...' : 'Обращений нет'}
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={listStyle}>
                         {requests.map((r) => {
                             const statusMeta = STATUS_META[r.status] || STATUS_META.new;
                             const actions = NEXT_ACTIONS[r.status] || [];
@@ -258,10 +199,7 @@ export default function OrderRequestsPage() {
                                 <div
                                     key={r.id}
                                     style={{
-                                        padding: '16px 18px',
-                                        borderRadius: radius.md,
-                                        border: `1px solid ${t.border}`,
-                                        background: t.surfaceInset,
+                                        ...listItemStyle,
                                         display: 'flex',
                                         flexDirection: 'column',
                                         gap: 10,

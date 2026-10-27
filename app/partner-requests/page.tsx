@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
 import Icon, { type IconName } from '@/components/Icon';
-import { t, radius, text, cardStyle, button, badge, inputStyle, textareaStyle } from '@/lib/theme';
+import { t, radius, text, button, badge, textareaStyle } from '@/lib/theme';
+import { PageHeader, Toolbar, SearchInput, RefreshButton, pageCard, listStyle, listItemStyle, emptyTextStyle } from '@/components/PageKit';
+import { TabPills } from '@/components/rooms/shared';
+import { ErrorBox } from '@/components/notifications/shared';
 import { getStaffAuth, staffLogout, type StaffAuth } from '@/lib/staff-auth-api';
 import {
     listPartnerRequests,
@@ -87,10 +90,7 @@ function RequestCard({
     return (
         <div
             style={{
-                padding: '16px 18px',
-                borderRadius: radius.md,
-                border: `1px solid ${t.border}`,
-                background: t.surfaceInset,
+                ...listItemStyle,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 10,
@@ -309,98 +309,39 @@ export default function PartnerRequestsPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        marginBottom: 18,
-                    }}
-                >
-                    <div>
-                        <h1 style={{ ...text.pageTitle, margin: '0 0 6px' }}>Заявки партнёров</h1>
-                        <div style={{ ...text.caption, fontWeight: 500 }}>
-                            Форма «Стать партнёром» на totus.club/partners · найдено: {total}
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => load()}
-                        disabled={loading}
-                        style={{
-                            ...button('secondary', 'md'),
-                            borderRadius: radius.pill,
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                        }}
-                    >
-                        <Icon name="refresh" size={16} />
-                        {loading ? 'Обновление...' : 'Обновить'}
-                    </button>
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Заявки партнёров"
+                    subtitle={`Форма «Стать партнёром» на totus.club/partners · найдено: ${total}`}
+                    actions={<RefreshButton onClick={() => load()} loading={loading} />}
+                />
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                    {FILTERS.map((f) => {
-                        const active = filter === f.value;
-                        const count = f.value && counts ? counts[f.value] : null;
-                        return (
-                            <button
-                                key={f.value || 'all'}
-                                onClick={() => setFilter(f.value)}
-                                style={{
-                                    ...button('secondary', 'sm'),
-                                    borderRadius: radius.pill,
-                                    background: active ? t.accentSoft : t.surfaceInset,
-                                    border: `1px solid ${active ? t.accentBorder : t.border}`,
-                                    color: active ? t.accent : t.textTertiary,
-                                }}
-                            >
-                                {f.label}
-                                {count != null ? ` · ${count}` : ''}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <div style={{ position: 'relative', marginBottom: 20, maxWidth: 420 }}>
-                    <input
+                <Toolbar>
+                    <SearchInput
                         type="search"
                         value={query}
-                        onChange={(e) => setQuery(e.target.value)}
+                        onChange={setQuery}
                         placeholder="Поиск: компания, имя, почта, телефон"
-                        aria-label="Поиск заявок"
-                        style={{ ...inputStyle, width: '100%' }}
+                        ariaLabel="Поиск заявок"
                     />
-                </div>
+                    <TabPills
+                        tabs={FILTERS.map((f) => {
+                            const count = f.value && counts ? counts[f.value] : null;
+                            return { value: f.value, label: `${f.label}${count != null ? ` · ${count}` : ''}` };
+                        })}
+                        value={filter}
+                        onChange={setFilter}
+                    />
+                </Toolbar>
 
-                {listError && (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            marginBottom: 16,
-                            padding: '10px 12px',
-                            background: t.errorSoft,
-                            border: `1px solid ${t.error}`,
-                            borderRadius: radius.sm,
-                            color: t.error,
-                            fontSize: 13,
-                            lineHeight: '18px',
-                        }}
-                    >
-                        <Icon name="info" size={16} />
-                        <span>{listError}</span>
-                    </div>
-                )}
+                <ErrorBox message={listError} />
 
                 {requests.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', ...text.body, color: t.textTertiary }}>
+                    <div style={emptyTextStyle}>
                         {loading ? 'Загрузка...' : 'Заявок нет'}
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={listStyle}>
                         {requests.map((r) => (
                             <RequestCard
                                 key={r.id}
@@ -422,7 +363,7 @@ export default function PartnerRequestsPage() {
                 )}
 
                 {pages > 1 && (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 18 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
                         <button
                             onClick={() => setPage((p) => Math.max(0, p - 1))}
                             disabled={page === 0 || loading}
