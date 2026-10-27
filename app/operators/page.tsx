@@ -9,8 +9,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
-import Icon from '@/components/Icon';
-import { t, text, cardStyle } from '@/lib/theme';
+import { PageHeader, pageCard } from '@/components/PageKit';
 import { getStaffAuth, staffLogout, staffDisplayName, type StaffAuth } from '@/lib/staff-auth-api';
 import OperatorsTab from '@/components/operators/OperatorsTab';
 
@@ -43,18 +42,12 @@ export default function OperatorsPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div style={{ marginBottom: 20 }}>
-                    <h1 style={{ ...text.pageTitle, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Icon name="list" size={28} style={{ color: t.accent }} />
-                        Операторы
-                    </h1>
-                    <div style={{ ...text.caption, fontWeight: 500 }}>
-                        Справочник наших операторов · Сотрудник: {staffDisplayName(auth)}
-                    </div>
-                </div>
+            <div style={pageCard}>
+                <PageHeader title="Операторы" subtitle={`Справочник наших операторов · Сотрудник: ${staffDisplayName(auth)}`} />
 
-                <OperatorsTab />
+                <div style={{ minWidth: 0 }}>
+                    <OperatorsTab />
+                </div>
             </div>
         </PageShell>
     );

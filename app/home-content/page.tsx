@@ -8,7 +8,8 @@ import ContentSection from '@/components/admin/home/ContentSection';
 import PartnersSection from '@/components/admin/home/PartnersSection';
 import FaqSection from '@/components/admin/home/FaqSection';
 import FooterSocialSection from '@/components/admin/home/FooterSocialSection';
-import { cardStyle, button, radius, text, t } from '@/lib/theme';
+import { button, radius, t } from '@/lib/theme';
+import { PageHeader, pageCard } from '@/components/PageKit';
 
 const NAV_ITEMS = [
     { id: 'hero-banners', label: 'Hero и баннеры' },
@@ -38,22 +39,17 @@ export default function HomeContentPage() {
         <PageShell>
             <AdminNav />
 
-            <div style={cardStyle}>
-                <div style={{ marginBottom: 24 }}>
-                    <h1 style={{ margin: 0, ...text.pageTitle }}>
-                        Главная страница
-                    </h1>
-                    <p style={{ margin: '8px 0 0', ...text.body, color: t.textTertiary, maxWidth: 720 }}>
-                        Все секции главной страницы сайта в одном месте — в том же порядке, что на сайте.
-                    </p>
-                </div>
+            <div style={pageCard}>
+                <PageHeader
+                    title="Главная страница"
+                    subtitle="Все секции главной страницы сайта в одном месте — в том же порядке, что на сайте."
+                />
 
                 <div
                     style={{
                         display: 'flex',
                         gap: 8,
                         flexWrap: 'wrap',
-                        marginBottom: 24,
                         padding: 12,
                         borderRadius: radius.md,
                         border: `1px solid ${t.border}`,
@@ -71,11 +67,13 @@ export default function HomeContentPage() {
                     ))}
                 </div>
 
-                <HeroBannersSection />
-                <ContentSection />
-                <PartnersSection />
-                <FaqSection />
-                <FooterSocialSection />
+                <div style={{ minWidth: 0 }}>
+                    <HeroBannersSection />
+                    <ContentSection />
+                    <PartnersSection />
+                    <FaqSection />
+                    <FooterSocialSection />
+                </div>
             </div>
         </PageShell>
     );
