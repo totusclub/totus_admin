@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageShell from '@/components/PageShell';
 import AdminNav from '@/components/AdminNav';
@@ -20,8 +20,9 @@ import {
 } from '@/lib/ai-chats-api';
 
 /**
- * Чаты пользователя с Машей (ИИ-ассистент): слева — все его чаты, справа — выбранный
- * чат целиком, вопросы пользователя и ответы Маши. Только просмотр.
+ * Чаты пользователя с Машей (ИИ-ассистент): вверху — все его чаты вкладками в ряд,
+ * переключение стрелками ← →; ниже — выбранный чат целиком, вопросы пользователя
+ * и ответы Маши. Только просмотр.
  */
 export default function UserAiChatsPage() {
     const router = useRouter();
@@ -38,6 +39,8 @@ export default function UserAiChatsPage() {
     const [chatError, setChatError] = useState('');
     const [query, setQuery] = useState('');
     const [copied, setCopied] = useState(false);
+
+    const tabsRef = useRef<HTMLDivElement>(null);
 
     const userName = user ? getUserDisplayName(user) : `Пользователь #${userId}`;
 
@@ -92,6 +95,30 @@ export default function UserAiChatsPage() {
         };
     }, [activeId]);
 
+    const activeIndex = chats.findIndex((c) => c.id === activeId);
+
+    /** Стрелки ← → : предыдущий / следующий чат (в списке новые слева). */
+    const step = (delta: number) => {
+        const next = chats[activeIndex + delta];
+        if (next) setActiveId(next.id);
+    };
+
+    const onTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        const next = chats[activeIndex + (e.key === 'ArrowRight' ? 1 : -1)];
+        if (!next) return;
+        setActiveId(next.id);
+        tabsRef.current?.querySelector<HTMLButtonElement>(`[data-chat-id="${CSS.escape(next.id)}"]`)?.focus();
+    };
+
+    // Выбранная вкладка всегда видна в ленте.
+    useEffect(() => {
+        if (!activeId) return;
+        const el = tabsRef.current?.querySelector<HTMLElement>(`[data-chat-id="${CSS.escape(activeId)}"]`);
+        el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }, [activeId]);
+
     const messages = useMemo(() => {
         const list = (chat?.messages || []).filter((m) => m.role !== 'system');
         const q = query.trim().toLowerCase();
@@ -141,38 +168,61 @@ export default function UserAiChatsPage() {
                 ) : chats.length === 0 ? (
                     <div style={emptyTextStyle}>{listLoading ? 'Загрузка...' : 'У пользователя нет чатов с Машей'}</div>
                 ) : (
-                    <div style={splitStyle}>
-                        <aside aria-label="История чатов" style={listColumnStyle}>
-                            <div style={{ ...text.caption, padding: '0 4px 4px' }}>История чатов</div>
-                            {chats.map((c) => {
-                                const active = c.id === activeId;
-                                return (
-                                    <button
-                                        key={c.id}
-                                        type="button"
-                                        onClick={() => setActiveId(c.id)}
-                                        aria-current={active ? 'true' : undefined}
-                                        style={{
-                                            ...chatItemStyle,
-                                            background: active ? t.accentSoft : t.surfaceInset,
-                                            borderColor: active ? t.accentBorder : t.border,
-                                        }}
-                                    >
-                                        <span style={{ ...text.cardTitle, fontSize: 14, lineHeight: '20px', color: active ? t.accent : t.textPrimary, ...clamp(1) }}>
-                                            {c.title}
-                                        </span>
-                                        {c.preview && c.preview !== c.title ? (
-                                            <span style={{ ...text.body, fontSize: 13, lineHeight: '18px', ...clamp(2) }}>{c.preview}</span>
-                                        ) : null}
-                                        <span style={{ ...text.caption, fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                            <span>{formatChatTime(c.updatedAt)}</span>
-                                            <span style={{ color: t.textDisabled }}>•</span>
-                                            <span>Сообщений: {c.messagesCount}</span>
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </aside>
+                    <>
+                        <div style={tabsBarStyle}>
+                            <button
+                                type="button"
+                                onClick={() => step(-1)}
+                                disabled={activeIndex <= 0}
+                                aria-label="Предыдущий чат"
+                                title="Предыдущий чат"
+                                style={arrowStyle(activeIndex <= 0)}
+                            >
+                                <Icon name="chevronRight" size={20} style={{ transform: 'rotate(180deg)' }} />
+                            </button>
+                            <div role="tablist" aria-label="История чатов" ref={tabsRef} onKeyDown={onTabsKeyDown} style={tabsStripStyle}>
+                                {chats.map((c) => {
+                                    const active = c.id === activeId;
+                                    return (
+                                        <button
+                                            key={c.id}
+                                            type="button"
+                                            role="tab"
+                                            data-chat-id={c.id}
+                                            aria-selected={active}
+                                            tabIndex={active ? 0 : -1}
+                                            onClick={() => setActiveId(c.id)}
+                                            title={c.preview || c.title}
+                                            style={{
+                                                ...chatTabStyle,
+                                                background: active ? t.accentSoft : t.surfaceInset,
+                                                borderColor: active ? t.accentBorder : t.border,
+                                            }}
+                                        >
+                                            <span style={{ ...text.cardTitle, fontSize: 14, lineHeight: '20px', color: active ? t.accent : t.textPrimary, ...clamp(1) }}>
+                                                {c.title}
+                                            </span>
+                                            <span style={{ ...text.caption, fontSize: 12, whiteSpace: 'nowrap' }}>
+                                                {formatChatTime(c.updatedAt)} · {c.messagesCount} сообщ.
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => step(1)}
+                                disabled={activeIndex >= chats.length - 1}
+                                aria-label="Следующий чат"
+                                title="Следующий чат"
+                                style={arrowStyle(activeIndex >= chats.length - 1)}
+                            >
+                                <Icon name="chevronRight" size={20} />
+                            </button>
+                        </div>
+                        <div style={{ ...text.caption, marginTop: -8 }}>
+                            Чат {activeIndex + 1} из {chats.length}
+                        </div>
 
                         <section aria-label="Переписка" style={chatColumnStyle}>
                             {chatLoading && !chat ? (
@@ -214,7 +264,7 @@ export default function UserAiChatsPage() {
                                 <div style={emptyTextStyle}>Выберите чат</div>
                             )}
                         </section>
-                    </div>
+                    </>
                 )}
             </div>
         </PageShell>
@@ -317,34 +367,43 @@ function clamp(lines: number): CSSProperties {
     return { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' };
 }
 
-const splitStyle: CSSProperties = {
+const tabsBarStyle: CSSProperties = {
     display: 'flex',
-    gap: 20,
-    alignItems: 'stretch',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
     minWidth: 0,
 };
 
-const listColumnStyle: CSSProperties = {
-    flex: '0 1 300px',
-    minWidth: 240,
+const tabsStripStyle: CSSProperties = {
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
-    flexDirection: 'column',
     gap: 8,
-    maxHeight: 'calc(100vh - 48px)',
-    overflowY: 'auto',
-    paddingRight: 4,
-    position: 'sticky',
-    top: 24,
-    alignSelf: 'flex-start',
+    overflowX: 'auto',
+    scrollbarWidth: 'thin',
+    paddingBottom: 4,
 };
 
-const chatItemStyle: CSSProperties = {
+function arrowStyle(disabled: boolean): CSSProperties {
+    return {
+        ...button('secondary', 'md'),
+        padding: 0,
+        width: 40,
+        height: 40,
+        flexShrink: 0,
+        borderRadius: radius.pill,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+    };
+}
+
+const chatTabStyle: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
-    width: '100%',
-    padding: '12px 14px',
+    gap: 2,
+    flex: '0 0 auto',
+    width: 220,
+    padding: '10px 14px',
     borderRadius: radius.md,
     border: `1px solid ${t.border}`,
     textAlign: 'left',
@@ -354,7 +413,6 @@ const chatItemStyle: CSSProperties = {
 };
 
 const chatColumnStyle: CSSProperties = {
-    flex: '1 1 480px',
     minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
