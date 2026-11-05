@@ -8,12 +8,14 @@ import Icon from '@/components/Icon';
 import { PageHeader, Toolbar, SearchInput, RefreshButton, pageCard, listStyle, listItemStyle, emptyTextStyle } from '@/components/PageKit';
 import { t, radius, text, button, badge } from '@/lib/theme';
 import { getAllUsers, getUserDisplayName, type User } from '@/lib/users-api';
+import { getAiChatSummary, type AiChatSummary } from '@/lib/ai-chats-api';
 
 export default function UsersPage() {
     const router = useRouter();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [aiChats, setAiChats] = useState<Record<string, AiChatSummary>>({});
 
     const loadUsers = async () => {
         try {
@@ -26,6 +28,10 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
+        // Число чатов с Машей — для кнопки; если не загрузилось, кнопка остаётся без числа.
+        getAiChatSummary()
+            .then(setAiChats)
+            .catch((e) => console.error('Failed to load AI chat summary:', e));
     };
 
     useEffect(() => {
@@ -155,18 +161,30 @@ export default function UsersPage() {
                                         </div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => router.push(`/orders?userId=${user.id}`)}
-                                    style={{
-                                        ...button('secondary', 'md'),
-                                        background: t.accentSoft,
-                                        color: t.accent,
-                                        border: `1px solid ${t.accentBorder}`,
-                                    }}
-                                >
-                                    Заказы
-                                    <Icon name="chevronRight" size={16} />
-                                </button>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                    <button
+                                        onClick={() => router.push(`/users/${user.id}/ai-chats`)}
+                                        style={button('secondary', 'md')}
+                                    >
+                                        Чаты с Машей
+                                        {aiChats[String(user.id)]?.chats ? (
+                                            <span style={{ ...badge('neutral'), padding: '0 8px', lineHeight: '20px' }}>{aiChats[String(user.id)].chats}</span>
+                                        ) : null}
+                                        <Icon name="chevronRight" size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => router.push(`/orders?userId=${user.id}`)}
+                                        style={{
+                                            ...button('secondary', 'md'),
+                                            background: t.accentSoft,
+                                            color: t.accent,
+                                            border: `1px solid ${t.accentBorder}`,
+                                        }}
+                                    >
+                                        Заказы
+                                        <Icon name="chevronRight" size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
