@@ -8,7 +8,10 @@ const BANNERS_API_BASE =
 export interface HomeBanner {
     id?: number;
     position: number;
+    /** Картинка для светлой темы сайта ('' — не загружена: на сайте стандартная). */
     image: string;
+    /** Картинка для тёмной темы ('' — не загружена: на сайте в тёмной теме светлая). */
+    image_dark?: string;
     url: string;
     updated_at?: string;
 }
@@ -27,14 +30,32 @@ export async function getHomeBanners(): Promise<HomeBanner[]> {
     return Array.isArray(data.data) ? data.data : [];
 }
 
+/**
+ * Сохраняет один баннер (1 или 2); второй баннер не меняется.
+ * image / imageDark — новая картинка для светлой / тёмной темы;
+ * removeImage / removeImageDark — убрать загруженную картинку этой темы.
+ */
 export async function saveHomeBanner(
     position: number,
-    input: { url: string; image?: File | null },
+    input: {
+        url: string;
+        image?: File | null;
+        imageDark?: File | null;
+        removeImage?: boolean;
+        removeImageDark?: boolean;
+    },
 ): Promise<HomeBanner> {
     const formData = new FormData();
     formData.append('url', input.url ?? '');
     if (input.image) {
         formData.append('image', input.image);
+    } else if (input.removeImage) {
+        formData.append('remove_image', '1');
+    }
+    if (input.imageDark) {
+        formData.append('image_dark', input.imageDark);
+    } else if (input.removeImageDark) {
+        formData.append('remove_image_dark', '1');
     }
 
     const response = await fetch(`${BANNERS_API_BASE}/api/admin/home-banners/${position}`, {
