@@ -20,13 +20,6 @@ const DEFAULT_TITLE = 'Путешествия начинаются здесь';
 const HERO_ACCEPT = 'image/jpeg,image/png,image/webp';
 const HERO_MAX_BYTES = 15 * 1024 * 1024;
 
-interface SlotState {
-    url: string;
-    file: File | null;
-    preview: string;
-    saving: boolean;
-}
-
 function dropZoneStyle(preview: string, height: number): React.CSSProperties {
     return {
         display: 'flex',
@@ -275,45 +268,177 @@ function HeroBlock({ hero, onSaved }: { hero?: HomeHero; onSaved: (hero: HomeHer
     );
 }
 
-function BannerSlot({ position, banner, onSaved }: { position: number; banner?: HomeBanner; onSaved: (b: HomeBanner) => void }) {
-    const [state, setState] = useState<SlotState>({ url: banner?.url || '', file: null, preview: banner?.image || '', saving: false });
+type BannerTheme = 'light' | 'dark';
+
+/** Картинка одной темы баннера: сохранённая, новый файл или «убрать». */
+interface ThemeImageState {
+    file: File | null;
+    preview: string;
+    remove: boolean;
+}
+
+const THEME_LABEL: Record<BannerTheme, string> = { light: 'Светлая тема', dark: 'Тёмная тема' };
+const THEME_EMPTY: Record<BannerTheme, string> = {
+    light: 'Не загружена — на сайте стандартная картинка',
+    dark: 'Не загружена — в тёмной теме показывается светлая',
+};
+
+function savedImage(banner: HomeBanner | undefined, theme: BannerTheme): string {
+    return (theme === 'light' ? banner?.image : banner?.image_dark) || '';
+}
+
+function BannerThemeImage({
+    theme,
+    state,
+    saved,
+    disabled,
+    onPick,
+    onClear,
+}: {
+    theme: BannerTheme;
+    state: ThemeImageState;
+    saved: string;
+    disabled: boolean;
+    onPick: (file: File) => void;
+    onClear: () => void;
+}) {
     const fileRef = useRef<HTMLInputElement>(null);
+    const changed = Boolean(state.file) || state.remove;
+
+    return (
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span style={{ ...text.cardTitle, fontSize: 14, lineHeight: '20px' }}>{THEME_LABEL[theme]}</span>
+                {changed ? <span style={badge('warning')}>Не сохранено</span> : null}
+            </div>
+            <div
+                style={{
+                    ...dropZoneStyle(state.preview, 120),
+                    flexDirection: 'column',
+                    gap: 6,
+                    padding: 12,
+                    textAlign: 'center',
+                    background: state.preview ? `center/cover no-repeat url(${state.preview}), ${t.surfaceInset}` : t.surfaceInset,
+                }}
+            >
+                {!state.preview && (
+                    <>
+                        <Icon name="photo" size={24} />
+                        <span style={{ ...text.caption, fontSize: 12 }}>{THEME_EMPTY[theme]}</span>
+                    </>
+                )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <label style={{ ...button('secondary', 'sm'), cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1 }}>
+                    <Icon name="upload" size={16} />
+                    {state.preview ? 'Заменить' : 'Выбрать фото'}
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept={HERO_ACCEPT}
+                        disabled={disabled}
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (fileRef.current) fileRef.current.value = '';
+                            if (file) onPick(file);
+                        }}
+                    />
+                </label>
+                {state.preview || (state.remove && saved) ? (
+                    <button type="button" onClick={onClear} disabled={disabled} style={button('tertiary', 'sm')}>
+                        <Icon name={state.remove ? 'refresh' : 'close'} size={16} />
+                        {state.file && saved ? 'Вернуть прежнюю' : state.file ? 'Отменить' : state.remove ? 'Вернуть' : 'Убрать'}
+                    </button>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+function BannerSlot({ position, banner, onSaved }: { position: number; banner?: HomeBanner; onSaved: (b: HomeBanner) => void }) {
+    const initialTheme = (theme: BannerTheme): ThemeImageState => ({ file: null, preview: savedImage(banner, theme), remove: false });
+    const [url, setUrl] = useState(banner?.url || '');
+    const [images, setImages] = useState<Record<BannerTheme, ThemeImageState>>({
+        light: initialTheme('light'),
+        dark: initialTheme('dark'),
+    });
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        setState((prev) => ({ ...prev, url: banner?.url || '', preview: prev.file ? prev.preview : banner?.image || '' }));
-    }, [banner?.url, banner?.image]);
+        setUrl(banner?.url || '');
+    }, [banner?.url]);
+
+    useEffect(() => {
+        setImages((prev) => ({
+            light: prev.light.file || prev.light.remove ? prev.light : initialTheme('light'),
+            dark: prev.dark.file || prev.dark.remove ? prev.dark : initialTheme('dark'),
+        }));
+    }, [banner?.image, banner?.image_dark]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const pick = (theme: BannerTheme, file: File) => {
+        const problem = validateHeroFiles([file]);
+        if (problem) {
+            alert(problem);
+            return;
+        }
+        setImages((prev) => ({ ...prev, [theme]: { file, preview: URL.createObjectURL(file), remove: false } }));
+    };
+
+    // «Убрать» сохранённую картинку / отменить выбранный файл / вернуть убранную.
+    const clear = (theme: BannerTheme) => {
+        const saved = savedImage(banner, theme);
+        setImages((prev) => {
+            const cur = prev[theme];
+            if (cur.file || cur.remove) return { ...prev, [theme]: { file: null, preview: saved, remove: false } };
+            return { ...prev, [theme]: { file: null, preview: '', remove: Boolean(saved) } };
+        });
+    };
 
     const handleSave = async () => {
         try {
-            setState((prev) => ({ ...prev, saving: true }));
-            const saved = await saveHomeBanner(position, { url: state.url, image: state.file });
+            setSaving(true);
+            const saved = await saveHomeBanner(position, {
+                url,
+                image: images.light.file,
+                imageDark: images.dark.file,
+                removeImage: images.light.remove,
+                removeImageDark: images.dark.remove,
+            });
             onSaved(saved);
-            setState((prev) => ({ ...prev, file: null, saving: false, preview: saved.image || prev.preview }));
-            if (fileRef.current) fileRef.current.value = '';
+            setImages({
+                light: { file: null, preview: saved.image || '', remove: false },
+                dark: { file: null, preview: saved.image_dark || '', remove: false },
+            });
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Не удалось сохранить баннер');
-            setState((prev) => ({ ...prev, saving: false }));
+        } finally {
+            setSaving(false);
         }
     };
 
     return (
-        <div style={{ flex: '1 1 300px', minWidth: 260, padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface, boxSizing: 'border-box' }}>
+        <div style={{ flex: '1 1 420px', minWidth: 260, padding: 16, borderRadius: radius.md, border: `1px solid ${t.border}`, background: t.surface, boxSizing: 'border-box' }}>
             <h4 style={{ margin: '0 0 12px', ...text.cardTitle }}>Баннер {position}</h4>
-            <div style={dropZoneStyle(state.preview, 140)}>
-                {!state.preview && <Icon name="photo" size={28} />}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+                {(['light', 'dark'] as BannerTheme[]).map((theme) => (
+                    <BannerThemeImage
+                        key={theme}
+                        theme={theme}
+                        state={images[theme]}
+                        saved={savedImage(banner, theme)}
+                        disabled={saving}
+                        onPick={(file) => pick(theme, file)}
+                        onClear={() => clear(theme)}
+                    />
+                ))}
             </div>
-            <label style={{ ...button('secondary'), marginBottom: 12 }}>
-                <Icon name="upload" size={16} />
-                Выбрать фото
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    if (!file) return;
-                    setState((prev) => ({ ...prev, file, preview: URL.createObjectURL(file) }));
-                }} />
-            </label>
-            <input value={state.url} onChange={(e) => setState((prev) => ({ ...prev, url: e.target.value }))} placeholder="Ссылка" style={{ ...inputStyle, marginBottom: 12 }} />
-            <button onClick={handleSave} disabled={state.saving} style={{ ...button('primary'), opacity: state.saving ? 0.6 : 1 }}>
-                {state.saving ? 'Сохранение...' : 'Сохранить'}
+            <p style={{ margin: '0 0 12px', ...text.caption, fontSize: 12 }}>
+                JPG, PNG или WEBP до 15 МБ. Сайт сам показывает картинку под тему, которую выбрал посетитель.
+            </p>
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Ссылка" style={{ ...inputStyle, marginBottom: 12 }} />
+            <button onClick={handleSave} disabled={saving} style={{ ...button('primary'), opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
         </div>
     );
@@ -345,7 +470,7 @@ export default function HeroBannersSection() {
     return (
         <section id="hero-banners" style={sectionBox}>
             <h3 style={sectionTitle}>Hero и баннеры</h3>
-            <p style={sectionDesc}>Верхний блок и два баннера под поиском на главной.</p>
+            <p style={sectionDesc}>Верхний блок и два баннера под поиском на главной. У каждого баннера — своя ссылка и свои картинки для светлой и тёмной темы.</p>
             {loading ? <p style={{ ...text.caption, margin: 0 }}>Загрузка...</p> : (
                 <>
                     <HeroBlock hero={hero || undefined} onSaved={setHero} />
