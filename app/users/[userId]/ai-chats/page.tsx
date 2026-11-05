@@ -21,8 +21,8 @@ import {
 
 /**
  * Чаты пользователя с Машей (ИИ-ассистент): вверху — все его чаты вкладками в ряд,
- * переключение стрелками ← →; ниже — выбранный чат целиком, вопросы пользователя
- * и ответы Маши. Только просмотр.
+ * переключение стрелками ← →; лента закреплена вверху при прокрутке переписки.
+ * Ниже — выбранный чат целиком, вопросы пользователя и ответы Маши. Только просмотр.
  */
 export default function UserAiChatsPage() {
     const router = useRouter();
@@ -41,6 +41,10 @@ export default function UserAiChatsPage() {
     const [copied, setCopied] = useState(false);
 
     const tabsRef = useRef<HTMLDivElement>(null);
+    const stickySentinelRef = useRef<HTMLDivElement>(null);
+    const [carouselStuck, setCarouselStuck] = useState(false);
+    const carouselRef = useRef<HTMLDivElement>(null);
+    const chatSectionRef = useRef<HTMLElement>(null);
 
     const userName = user ? getUserDisplayName(user) : `Пользователь #${userId}`;
 
@@ -97,10 +101,24 @@ export default function UserAiChatsPage() {
 
     const activeIndex = chats.findIndex((c) => c.id === activeId);
 
+    /**
+     * Выбор чата. Если страница прокручена вниз (карусель закреплена), переписка нового чата
+     * открывается с начала — сразу под каруселью, а не с середины.
+     */
+    const selectChat = (id: string) => {
+        setActiveId(id);
+        const section = chatSectionRef.current;
+        const carousel = carouselRef.current;
+        if (!section || !carousel) return;
+        const offset = carousel.getBoundingClientRect().height;
+        const top = section.getBoundingClientRect().top;
+        if (top < offset) window.scrollTo({ top: window.scrollY + top - offset - 8 });
+    };
+
     /** Стрелки ← → : предыдущий / следующий чат (в списке новые слева). */
     const step = (delta: number) => {
         const next = chats[activeIndex + delta];
-        if (next) setActiveId(next.id);
+        if (next) selectChat(next.id);
     };
 
     const onTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -108,7 +126,7 @@ export default function UserAiChatsPage() {
         e.preventDefault();
         const next = chats[activeIndex + (e.key === 'ArrowRight' ? 1 : -1)];
         if (!next) return;
-        setActiveId(next.id);
+        selectChat(next.id);
         tabsRef.current?.querySelector<HTMLButtonElement>(`[data-chat-id="${CSS.escape(next.id)}"]`)?.focus();
     };
 
@@ -118,6 +136,17 @@ export default function UserAiChatsPage() {
         const el = tabsRef.current?.querySelector<HTMLElement>(`[data-chat-id="${CSS.escape(activeId)}"]`);
         el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }, [activeId]);
+
+    // Карусель закреплена вверху (position: sticky, прокручивается окно): когда метка над ней
+    // уходит за верх экрана, карусель «прилипла» — включаем нижнюю границу и тень.
+    const hasChats = chats.length > 0;
+    useEffect(() => {
+        const el = stickySentinelRef.current;
+        if (!el || typeof IntersectionObserver === 'undefined') return;
+        const io = new IntersectionObserver(([entry]) => setCarouselStuck(!entry.isIntersecting && entry.boundingClientRect.top < 0));
+        io.observe(el);
+        return () => io.disconnect();
+    }, [hasChats, listError]);
 
     const messages = useMemo(() => {
         const list = (chat?.messages || []).filter((m) => m.role !== 'system');
@@ -169,62 +198,73 @@ export default function UserAiChatsPage() {
                     <div style={emptyTextStyle}>{listLoading ? 'Загрузка...' : 'У пользователя нет чатов с Машей'}</div>
                 ) : (
                     <>
-                        <div style={tabsBarStyle}>
-                            <button
-                                type="button"
-                                onClick={() => step(-1)}
-                                disabled={activeIndex <= 0}
-                                aria-label="Предыдущий чат"
-                                title="Предыдущий чат"
-                                style={arrowStyle(activeIndex <= 0)}
-                            >
-                                <Icon name="chevronRight" size={20} style={{ transform: 'rotate(180deg)' }} />
-                            </button>
-                            <div role="tablist" aria-label="История чатов" ref={tabsRef} onKeyDown={onTabsKeyDown} style={tabsStripStyle}>
-                                {chats.map((c) => {
-                                    const active = c.id === activeId;
-                                    return (
-                                        <button
-                                            key={c.id}
-                                            type="button"
-                                            role="tab"
-                                            data-chat-id={c.id}
-                                            aria-selected={active}
-                                            tabIndex={active ? 0 : -1}
-                                            onClick={() => setActiveId(c.id)}
-                                            title={c.preview || c.title}
-                                            style={{
-                                                ...chatTabStyle,
-                                                background: active ? t.accentSoft : t.surfaceInset,
-                                                borderColor: active ? t.accentBorder : t.border,
-                                            }}
-                                        >
-                                            <span style={{ ...text.cardTitle, fontSize: 14, lineHeight: '20px', color: active ? t.accent : t.textPrimary, ...clamp(1) }}>
-                                                {c.title}
-                                            </span>
-                                            <span style={{ ...text.caption, fontSize: 12, whiteSpace: 'nowrap' }}>
-                                                {formatChatTime(c.updatedAt)} · {c.messagesCount} сообщ.
-                                            </span>
-                                        </button>
-                                    );
-                                })}
+                        {/* Метка для отслеживания: карусель «прилипла» к верху окна — показываем нижнюю границу. */}
+                        <div ref={stickySentinelRef} aria-hidden style={{ height: 1, marginBottom: -21 }} />
+                        <div
+                            ref={carouselRef}
+                            style={{
+                                ...carouselStickyStyle,
+                                borderBottomColor: carouselStuck ? t.border : 'transparent',
+                                boxShadow: carouselStuck ? t.shadowCard : 'none',
+                            }}
+                        >
+                            <div style={tabsBarStyle}>
+                                <button
+                                    type="button"
+                                    onClick={() => step(-1)}
+                                    disabled={activeIndex <= 0}
+                                    aria-label="Предыдущий чат"
+                                    title="Предыдущий чат"
+                                    style={arrowStyle(activeIndex <= 0)}
+                                >
+                                    <Icon name="chevronRight" size={20} style={{ transform: 'rotate(180deg)' }} />
+                                </button>
+                                <div role="tablist" aria-label="История чатов" ref={tabsRef} onKeyDown={onTabsKeyDown} style={tabsStripStyle}>
+                                    {chats.map((c) => {
+                                        const active = c.id === activeId;
+                                        return (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                role="tab"
+                                                data-chat-id={c.id}
+                                                aria-selected={active}
+                                                tabIndex={active ? 0 : -1}
+                                                onClick={() => selectChat(c.id)}
+                                                title={c.preview || c.title}
+                                                style={{
+                                                    ...chatTabStyle,
+                                                    background: active ? t.accentSoft : t.surfaceInset,
+                                                    borderColor: active ? t.accentBorder : t.border,
+                                                }}
+                                            >
+                                                <span style={{ ...text.cardTitle, fontSize: 14, lineHeight: '20px', color: active ? t.accent : t.textPrimary, ...clamp(1) }}>
+                                                    {c.title}
+                                                </span>
+                                                <span style={{ ...text.caption, fontSize: 12, whiteSpace: 'nowrap' }}>
+                                                    {formatChatTime(c.updatedAt)} · {c.messagesCount} сообщ.
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => step(1)}
+                                    disabled={activeIndex >= chats.length - 1}
+                                    aria-label="Следующий чат"
+                                    title="Следующий чат"
+                                    style={arrowStyle(activeIndex >= chats.length - 1)}
+                                >
+                                    <Icon name="chevronRight" size={20} />
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => step(1)}
-                                disabled={activeIndex >= chats.length - 1}
-                                aria-label="Следующий чат"
-                                title="Следующий чат"
-                                style={arrowStyle(activeIndex >= chats.length - 1)}
-                            >
-                                <Icon name="chevronRight" size={20} />
-                            </button>
-                        </div>
-                        <div style={{ ...text.caption, marginTop: -8 }}>
-                            Чат {activeIndex + 1} из {chats.length}
+                            <div style={text.caption}>
+                                Чат {activeIndex + 1} из {chats.length}
+                            </div>
                         </div>
 
-                        <section aria-label="Переписка" style={chatColumnStyle}>
+                        <section ref={chatSectionRef} aria-label="Переписка" style={chatColumnStyle}>
                             {chatLoading && !chat ? (
                                 <div style={emptyTextStyle}>Загрузка...</div>
                             ) : chatError ? (
@@ -366,6 +406,26 @@ function MessageBubble({ message, userName }: { message: AiChatMessage; userName
 function clamp(lines: number): CSSProperties {
     return { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' };
 }
+
+/**
+ * Карусель чатов закреплена вверху блока: sticky относительно окна (страницы админки
+ * прокручивает окно, PageShell без overflow). Фон карточки, чтобы переписка уходила под неё;
+ * поля карточки (24) и промежутки (12) продлены отрицательными отступами — фон на всю
+ * ширину, расстояния до заголовка и переписки как раньше.
+ */
+const carouselStickyStyle: CSSProperties = {
+    position: 'sticky',
+    top: 0,
+    zIndex: 5,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    margin: '-12px -24px',
+    padding: '12px 24px',
+    background: t.surface,
+    borderBottom: '1px solid transparent',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+};
 
 const tabsBarStyle: CSSProperties = {
     display: 'flex',
