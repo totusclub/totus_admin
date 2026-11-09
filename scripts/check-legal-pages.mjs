@@ -6,6 +6,8 @@
 // Пачка 2 (05.10.2026): ещё 5 документов — оферта о заключении договора о реализации
 // туристского продукта, условия бронирования размещения, изменение, отмена и возврат,
 // памятка туристу, оплата и возврат денег.
+// Редакция 30.10.2026: ещё 4 — согласие для персональных рекомендаций, согласие на обработку
+// данных для рекламы, форма заявки на бронирование, форма информации о туроператоре.
 // Запуск: node scripts/check-legal-pages.mjs (Node >= 22.18, без npm install).
 import assert from 'node:assert/strict';
 
@@ -18,6 +20,7 @@ const API_ALLOWED = [
     'badges-certificates', 'security', 'cookie-settings', 'privacy-policy', 'terms',
     'consent', 'ads-consent', 'recommendations', 'requisites',
     'tour-offer', 'hotel-booking', 'cancellation', 'tourist-memo', 'payment',
+    'personalization-consent', 'marketing-data-consent', 'booking-application', 'operator-information',
 ];
 const LEGAL = {
     terms: 'Пользовательское соглашение',
@@ -32,6 +35,10 @@ const LEGAL = {
     cancellation: 'Изменение, отмена и возврат',
     'tourist-memo': 'Памятка туристу',
     payment: 'Оплата и возврат денег',
+    'personalization-consent': 'Согласие на обработку персональных данных для персональных рекомендаций',
+    'marketing-data-consent': 'Согласие на обработку персональных данных для направления рекламы',
+    'booking-application': 'Форма заявки на бронирование туристского продукта',
+    'operator-information': 'Форма информации о туроператоре',
 };
 
 let passed = 0;
@@ -41,7 +48,7 @@ function check(name, fn) {
     catch (e) { failed += 1; console.log('FAIL', name, '—', e.message); }
 }
 
-check('каталог совпадает с allowlist API (20 страниц)', () => {
+check('каталог совпадает с allowlist API (24 страницы)', () => {
     assert.deepEqual([...ALLOWED_ADMIN_PAGE_SLUGS].sort(), [...API_ALLOWED].sort());
 });
 check('slug не повторяются', () => {
